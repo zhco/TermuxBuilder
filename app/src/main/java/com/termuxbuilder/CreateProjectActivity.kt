@@ -55,7 +55,7 @@ class CreateProjectActivity : AppCompatActivity() {
             val minSdk = minSdkSpinner.selectedItem.toString().toInt()
             val templateIdx = templateSpinner.selectedItemPosition
 
-            val projectDir = File(filesDir, "projects/$name")
+            val projectDir = File(MainActivity.getProjectsDir(), name)
             if (projectDir.exists()) {
                 Toast.makeText(this, "项目 $name 已存在", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
