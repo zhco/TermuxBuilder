@@ -58,10 +58,10 @@ zipStorePath=wrapper/dists
         // gradlew script
         val D = "${'$'}"
         val gradlewScript = """#!/data/data/com.termux/files/usr/bin/bash
-APP_HOME="${D}( cd -- "${D}( dirname -- "${D}0" )" &> /dev/null && pwd )"
+APP_HOME="$( cd -- "$( dirname -- "${D}0" )" &> /dev/null && pwd )"
 APP_NAME="Gradle"
 APP_BASE_NAME=${D}0
-DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
+DEFAULT_JVM_OPTS="-Xmx64m -Xms64m"
 MAX_FD="maximum"
 warn () { echo "${D}*"; }
 die () { echo; echo "${D}*"; echo; exit 1; }
@@ -89,6 +89,7 @@ exec "${D}JAVACMD" ${D}DEFAULT_JVM_OPTS ${D}JAVA_OPTS ${D}GRADLE_OPTS "-Dorg.gra
 """
         File(root, "gradlew").writeText(gradlewScript)
         File(root, "gradlew").setExecutable(true)
+
 
 
 // app/build.gradle.kts
