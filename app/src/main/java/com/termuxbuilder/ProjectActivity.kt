@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Base64
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
@@ -14,7 +15,9 @@ import androidx.recyclerview.widget.RecyclerView
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.zip.GZIPOutputStream
 
 class ProjectActivity : AppCompatActivity() {
 
@@ -64,50 +67,118 @@ class ProjectActivity : AppCompatActivity() {
     }
 
     private fun triggerBuild() {
-        Toast.makeText(this, "正在准备编译...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "正在打包项目...", Toast.LENGTH_SHORT).show()
 
-        val buildDir = "/data/local/tmp/tb_$projectName"
-        val buildCmd = "cd \"$buildDir\" && chmod +x gradlew 2>/dev/null && ./gradlew assembleDebug && echo '' && echo '>> APK:' && find app/build/outputs/apk -name '*.apk'"
+        btnBuild.isEnabled = false
+        btnBuild.text = "打包中..."
 
-        // Try direct copy first
-        var ok = false
-        try {
-            val dest = File(buildDir)
-            dest.deleteRecursively()
-            File(projectPath).copyRecursively(dest, overwrite = true)
-            ok = true
-        } catch (_: Exception) {}
-
-        if (ok) {
-            (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                .setPrimaryClip(ClipData.newPlainText("build", buildCmd))
-            Toast.makeText(this, "命令已复制，在 Termux 粘贴执行", Toast.LENGTH_LONG).show()
-        } else {
-            // Fallback: create tar and have Termux extract it
-            val tarFile = File("/data/local/tmp", "tb_${projectName}.tar")
+        Thread {
             try {
-                val proc = Runtime.getRuntime().exec(arrayOf("tar", "-cf", tarFile.absolutePath, "-C", File(projectPath).parent!!, File(projectPath).name))
-                proc.waitFor()
-                val tarcmd = "mkdir -p \"$buildDir\" && tar -xf \"${tarFile.absolutePath}\" -C \"$buildDir\" && $buildCmd"
-                (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                    .setPrimaryClip(ClipData.newPlainText("build", tarcmd))
-                Toast.makeText(this, "命令已复制，在 Termux 粘贴执行", Toast.LENGTH_LONG).show()
+                // Create tar.gz of project
+                val tarFile = File(cacheDir, "proj.tar.gz")
+                val projectDir = File(projectPath)
+                tarDir(projectDir, tarFile)
+
+                val tarBytes = tarFile.readBytes()
+                val b64 = Base64.encodeToString(tarBytes, Base64.NO_WRAP)
+
+                val targetDir = "/data/data/com.termux/files/home/projects/$projectName"
+                val script = """#!/data/data/com.termux/files/usr/bin/bash
+DIR="$targetDir"
+mkdir -p "\$DIR" && cd "\$DIR" || exit 1
+echo '>>> 解压项目...'
+base64 -d << 'B64EOF' | gunzip | tar -xf -
+$b64
+B64EOF
+echo '>>> 开始编译...'
+echo ''
+chmod +x gradlew 2>/dev/null
+./gradlew assembleDebug
+echo ''
+echo '>>> 编译完成。APK:'
+find app/build/outputs/apk -name '*.apk' 2>/dev/null
+echo ''
+"""
+
+                runOnUiThread {
+                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("build", script))
+                    btnBuild.isEnabled = true
+                    btnBuild.text = "编译"
+                    Toast.makeText(this, "已复制，长按粘贴到 Termux 执行", Toast.LENGTH_LONG).show()
+
+                    try {
+                        val intent = Intent(Intent.ACTION_MAIN).apply {
+                            setClassName("com.termux", "com.termux.app.TermuxActivity")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(intent)
+                    } catch (_: Exception) {}
+                }
             } catch (e: Exception) {
-                (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                    .setPrimaryClip(ClipData.newPlainText("build", "echo '错误: 无法准备项目文件'"))
-                Toast.makeText(this, "准备失败: ${e.message}", Toast.LENGTH_LONG).show()
-                return
+                runOnUiThread {
+                    btnBuild.isEnabled = true
+                    btnBuild.text = "编译"
+                    Toast.makeText(this, "打包失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun tarDir(srcDir: File, destFile: File) {
+        val baos = ByteArrayOutputStream()
+        val gzos = GZIPOutputStream(baos)
+        tarDirRecursive(gzos, srcDir, "")
+        gzos.close()
+        destFile.writeBytes(baos.toByteArray())
+    }
+
+    private fun tarDirRecursive(out: java.io.OutputStream, dir: File, prefix: String) {
+        dir.listFiles()?.sortedBy { it.name }?.forEach { file ->
+            val relPath = if (prefix.isEmpty()) file.name else "$prefix/${file.name}"
+            if (file.isDirectory) {
+                tarDirRecursive(out, file, relPath)
+            } else {
+                val header = buildTarHeader(relPath, file.length())
+                out.write(header)
+                file.inputStream().use { input ->
+                    val buf = ByteArray(4096)
+                    var len: Int
+                    while (input.read(buf).also { len = it } > 0) {
+                        out.write(buf, 0, len)
+                    }
+                }
+                // Padding to 512
+                val pad = (512 - (file.length() % 512)) % 512
+                if (pad > 0) out.write(ByteArray(pad.toInt()))
             }
         }
+    }
 
-        // Launch Termux
-        try {
-            val intent = Intent(Intent.ACTION_MAIN).apply {
-                setClassName("com.termux", "com.termux.app.TermuxActivity")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            startActivity(intent)
-        } catch (_: Exception) {}
+    private fun buildTarHeader(name: String, size: Long): ByteArray {
+        val header = ByteArray(512)
+        val nameBytes = name.toByteArray(Charsets.UTF_8)
+        System.arraycopy(nameBytes, 0, header, 0, minOf(nameBytes.size, 100))
+        // Mode: 0644
+        "0000644\u0000".toByteArray().copyInto(header, 100)
+        // UID/GID: 0
+        "0000000\u0000".toByteArray().copyInto(header, 108)
+        "0000000\u0000".toByteArray().copyInto(header, 116)
+        // Size (octal)
+        val sizeOctal = String.format("%011o\u0000", size).toByteArray()
+        sizeOctal.copyInto(header, 124)
+        // Mtime
+        val mtime = String.format("%011o\u0000", System.currentTimeMillis() / 1000).toByteArray()
+        mtime.copyInto(header, 136)
+        // Type flag: '0' for regular file
+        header[156] = '0'.code.toByte()
+        // Calculate checksum
+        for (i in 148..155) header[i] = ' '.code.toByte()
+        var sum = 0L
+        for (b in header) sum += b.toLong() and 0xFF
+        val cksum = String.format("%06o\u0000 ", sum).toByteArray()
+        cksum.copyInto(header, 148)
+        return header
     }
 
     inner class FileAdapter(private val items: List<File>) :
