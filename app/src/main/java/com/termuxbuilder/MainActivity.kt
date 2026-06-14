@@ -1,18 +1,22 @@
 package com.termuxbuilder
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -28,12 +32,20 @@ class MainActivity : AppCompatActivity() {
     private val projects = mutableListOf<File>()
 
     companion object {
-        private const val PERMISSION_CODE = 100
-
         fun getProjectsDir(): File {
             return File(Environment.getExternalStorageDirectory(), "TermuxBuilder/projects")
         }
     }
+
+    private val storagePermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            if (permissions.values.all { it }) {
+                loadProjects()
+            } else {
+                Snackbar.make(fab, "需要存储权限才能创建项目", Snackbar.LENGTH_INDEFINITE)
+                    .setAction("授予") { requestPermission() }.show()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,48 +58,50 @@ class MainActivity : AppCompatActivity() {
         projectList.layoutManager = LinearLayoutManager(this)
 
         fab.setOnClickListener {
-            if (checkStoragePermission()) {
+            if (hasStoragePermission()) {
                 startActivity(Intent(this, CreateProjectActivity::class.java))
-            }
-        }
-
-        if (checkStoragePermission()) {
-            loadProjects()
-        }
-    }
-
-    private fun checkStoragePermission(): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            return Environment.isExternalStorageManager()
-        }
-        val write = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        if (write != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE),
-                PERMISSION_CODE
-            )
-            return false
-        }
-        return true
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                loadProjects()
             } else {
-                Snackbar.make(fab, "需要存储权限才能创建项目", Snackbar.LENGTH_INDEFINITE)
-                    .setAction("授予") { checkStoragePermission() }.show()
+                requestPermission()
             }
+        }
+
+        if (hasStoragePermission()) {
+            loadProjects()
         }
     }
 
     override fun onResume() {
         super.onResume()
-        if (checkStoragePermission()) {
+        if (hasStoragePermission()) {
             loadProjects()
+        }
+    }
+
+    private fun hasStoragePermission(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return Environment.isExternalStorageManager()
+        }
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
+            PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requestPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            AlertDialog.Builder(this)
+                .setTitle("需要存储权限")
+                .setMessage("项目将存储在 /sdcard/TermuxBuilder/ 以便 Termux 访问。\n\n请授予「所有文件访问权限」。")
+                .setPositiveButton("去设置") { _, _ ->
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                }
+                .setNegativeButton("取消", null)
+                .show()
+        } else {
+            storagePermissionLauncher.launch(
+                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE)
+            )
         }
     }
 
