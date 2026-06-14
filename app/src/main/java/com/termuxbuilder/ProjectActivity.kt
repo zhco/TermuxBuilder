@@ -74,7 +74,6 @@ class ProjectActivity : AppCompatActivity() {
 
         Thread {
             try {
-                // Create tar.gz of project
                 val tarFile = File(cacheDir, "proj.tar.gz")
                 val projectDir = File(projectPath)
                 tarDir(projectDir, tarFile)
@@ -83,22 +82,22 @@ class ProjectActivity : AppCompatActivity() {
                 val b64 = Base64.encodeToString(tarBytes, Base64.NO_WRAP)
 
                 val targetDir = "/data/data/com.termux/files/home/projects/$projectName"
-                val script = """#!/data/data/com.termux/files/usr/bin/bash
-DIR="$targetDir"
-mkdir -p "\$DIR" && cd "\$DIR" || exit 1
-echo '>>> 解压项目...'
-base64 -d << 'B64EOF' | gunzip | tar -xf -
-$b64
-B64EOF
-echo '>>> 开始编译...'
-echo ''
-chmod +x gradlew 2>/dev/null
-./gradlew assembleDebug
-echo ''
-echo '>>> 编译完成。APK:'
-find app/build/outputs/apk -name '*.apk' 2>/dev/null
-echo ''
-"""
+                val D = "${'$'}"
+                val script = "#!/data/data/com.termux/files/usr/bin/bash\n" +
+                    "DIR=\"$targetDir\"\n" +
+                    "mkdir -p \"${D}DIR\" && cd \"${D}DIR\" || exit 1\n" +
+                    "echo '>>> 解压项目...'\n" +
+                    "base64 -d << 'B64EOF' | gunzip | tar -xf -\n" +
+                    "$b64\n" +
+                    "B64EOF\n" +
+                    "echo '>>> 开始编译...'\n" +
+                    "echo ''\n" +
+                    "chmod +x gradlew 2>/dev/null\n" +
+                    "./gradlew assembleDebug\n" +
+                    "echo ''\n" +
+                    "echo '>>> 编译完成。APK:'\n" +
+                    "find app/build/outputs/apk -name '*.apk' 2>/dev/null\n" +
+                    "echo ''\n"
 
                 runOnUiThread {
                     val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -148,7 +147,6 @@ echo ''
                         out.write(buf, 0, len)
                     }
                 }
-                // Padding to 512
                 val pad = (512 - (file.length() % 512)) % 512
                 if (pad > 0) out.write(ByteArray(pad.toInt()))
             }
@@ -159,20 +157,14 @@ echo ''
         val header = ByteArray(512)
         val nameBytes = name.toByteArray(Charsets.UTF_8)
         System.arraycopy(nameBytes, 0, header, 0, minOf(nameBytes.size, 100))
-        // Mode: 0644
         "0000644\u0000".toByteArray().copyInto(header, 100)
-        // UID/GID: 0
         "0000000\u0000".toByteArray().copyInto(header, 108)
         "0000000\u0000".toByteArray().copyInto(header, 116)
-        // Size (octal)
         val sizeOctal = String.format("%011o\u0000", size).toByteArray()
         sizeOctal.copyInto(header, 124)
-        // Mtime
         val mtime = String.format("%011o\u0000", System.currentTimeMillis() / 1000).toByteArray()
         mtime.copyInto(header, 136)
-        // Type flag: '0' for regular file
         header[156] = '0'.code.toByte()
-        // Calculate checksum
         for (i in 148..155) header[i] = ' '.code.toByte()
         var sum = 0L
         for (b in header) sum += b.toLong() and 0xFF
