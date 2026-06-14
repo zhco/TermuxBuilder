@@ -2,65 +2,112 @@ package com.termuxbuilder
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import android.os.Environment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import com.google.android.material.card.MaterialCardView
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.floatingactionbutton.FloatingActionButton
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var projectList: RecyclerView
+    private lateinit var emptyView: TextView
+    private lateinit var fab: FloatingActionButton
+    private val projects = mutableListOf<File>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val sections = listOf(
-            Section(1, "环境搭建", "pkg install openjdk-17 android-sdk gradle", "Termux 安装 Android 编译环境全流程"),
-            Section(2, "常用命令", "gradle assembleDebug", "编译、签名、安装、调试命令速查"),
-            Section(3, "项目模板", "从零创建 Android 项目", "在 Termux 中初始化 Gradle 项目结构"),
-            Section(4, "SDK 管理", "sdkmanager 使用指南", "安装/更新 SDK Platform、Build-Tools"),
-            Section(5, "常见错误", "排查 Gradle 编译报错", "SDK 找不到、依赖下载失败、签名错误"),
-            Section(6, "性能优化", "gradle.properties 调优", "减少编译时间、降低内存占用")
-        )
+        projectList = findViewById(R.id.project_list)
+        emptyView = findViewById(R.id.empty_view)
+        fab = findViewById(R.id.fab_create)
 
-        findViewById<RecyclerView>(R.id.section_list).apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = SectionAdapter(sections) { section ->
-                startActivity(Intent(this@MainActivity, GuideActivity::class.java).apply {
-                    putExtra("section_id", section.id)
-                    putExtra("section_title", section.title)
-                })
-            }
+        projectList.layoutManager = LinearLayoutManager(this)
+
+        fab.setOnClickListener {
+            startActivity(Intent(this, CreateProjectActivity::class.java))
         }
     }
-}
 
-data class Section(val id: Int, val title: String, val subtitle: String, val desc: String)
-
-class SectionAdapter(
-    private val items: List<Section>,
-    private val onClick: (Section) -> Unit
-) : RecyclerView.Adapter<SectionAdapter.VH>() {
-
-    class VH(view: View) : RecyclerView.ViewHolder(view) {
-        val card: MaterialCardView = view.findViewById(R.id.card)
-        val title: TextView = view.findViewById(R.id.card_title)
-        val subtitle: TextView = view.findViewById(R.id.card_subtitle)
+    override fun onResume() {
+        super.onResume()
+        loadProjects()
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(
-        LayoutInflater.from(parent.context).inflate(R.layout.item_section, parent, false)
-    )
+    private fun loadProjects() {
+        val dir = File(filesDir, "projects")
+        if (!dir.exists()) dir.mkdirs()
+        projects.clear()
+        dir.listFiles()?.filter { it.isDirectory }?.let { projects.addAll(it) }
+        projects.sortByDescending { it.lastModified() }
 
-    override fun onBindViewHolder(holder: VH, pos: Int) {
-        val item = items[pos]
-        holder.title.text = "${item.id}. ${item.title}"
-        holder.subtitle.text = item.subtitle
-        holder.card.setOnClickListener { onClick(item) }
+        if (projects.isEmpty()) {
+            emptyView.visibility = View.VISIBLE
+            projectList.visibility = View.GONE
+        } else {
+            emptyView.visibility = View.GONE
+            projectList.visibility = View.VISIBLE
+            projectList.adapter = ProjectAdapter(projects)
+        }
     }
 
-    override fun getItemCount() = items.size
+    inner class ProjectAdapter(private val items: List<File>) :
+        RecyclerView.Adapter<ProjectAdapter.ViewHolder>() {
+
+        inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+            val nameText: TextView = view.findViewById(R.id.project_name)
+            val pkgText: TextView = view.findViewById(R.id.project_package)
+            val dateText: TextView = view.findViewById(R.id.project_date)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+            val view = LayoutInflater.from(parent.context)
+                .inflate(R.layout.item_project, parent, false)
+            return ViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            val project = items[position]
+            val gradleFile = File(project, "app/build.gradle.kts")
+            val pkg = if (gradleFile.exists()) {
+                val content = gradleFile.readText()
+                val match = Regex("""applicationId\s*=\s*"([^"]+)"""").find(content)
+                match?.groupValues?.get(1) ?: "unknown"
+            } else "unknown"
+
+            holder.nameText.text = project.name
+            holder.pkgText.text = pkg
+            val date = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+            holder.dateText.text = date.format(java.util.Date(project.lastModified()))
+
+            holder.itemView.setOnClickListener {
+                val intent = Intent(this@MainActivity, ProjectActivity::class.java)
+                intent.putExtra("project_path", project.absolutePath)
+                intent.putExtra("project_name", project.name)
+                startActivity(intent)
+            }
+
+            holder.itemView.setOnLongClickListener {
+                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                    .setTitle("删除项目")
+                    .setMessage("确定删除 ${project.name}？")
+                    .setPositiveButton("删除") { _, _ ->
+                        project.deleteRecursively()
+                        loadProjects()
+                    }
+                    .setNegativeButton("取消", null)
+                    .show()
+                true
+            }
+        }
+
+        override fun getItemCount() = items.size
+    }
 }
