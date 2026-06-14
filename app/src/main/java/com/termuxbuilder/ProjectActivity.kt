@@ -102,12 +102,7 @@ class ProjectActivity : AppCompatActivity() {
                     "$b64\n" +
                     "B64EOF\n" +
                     "unzip -o _proj.zip && rm _proj.zip\n" +
-                    "# Download wrapper jar if missing\n" +
-                    "if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then\n" +
-                    "  echo '>>> 下载 Gradle Wrapper...'\n" +
-                    "  mkdir -p gradle/wrapper\n" +
-                    "  curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.9.0/gradle/wrapper/gradle-wrapper.jar\n" +
-                    "fi\n" +
+
                     "echo '>>> 开始编译...'\n" +
                     "chmod +x gradlew 2>/dev/null\n" +
                     "./gradlew assembleDebug\n" +
