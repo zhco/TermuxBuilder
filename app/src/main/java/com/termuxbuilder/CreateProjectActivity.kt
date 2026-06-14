@@ -39,26 +39,18 @@ class CreateProjectActivity : AppCompatActivity() {
             val name = nameInput.text.toString().trim()
             val pkg = pkgInput.text.toString().trim()
 
-            if (name.isEmpty()) {
-                Toast.makeText(this, "请输入项目名称", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            if (pkg.isEmpty()) {
-                Toast.makeText(this, "请输入包名", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
+            if (name.isEmpty()) { Toast.makeText(this, "请输入项目名称", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+            if (pkg.isEmpty()) { Toast.makeText(this, "请输入包名", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
             if (!pkg.matches(Regex("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)*$"))) {
-                Toast.makeText(this, "包名格式不正确", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+                Toast.makeText(this, "包名格式不正确", Toast.LENGTH_SHORT).show(); return@setOnClickListener
             }
 
             val minSdk = minSdkSpinner.selectedItem.toString().toInt()
             val templateIdx = templateSpinner.selectedItemPosition
+            val projectDir = File(filesDir, "projects/$name")
 
-            val projectDir = File(MainActivity.getProjectsDir(), name)
             if (projectDir.exists()) {
-                Toast.makeText(this, "项目 $name 已存在", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+                Toast.makeText(this, "项目 $name 已存在", Toast.LENGTH_SHORT).show(); return@setOnClickListener
             }
 
             ProjectTemplate.create(this, projectDir, name, pkg, minSdk, templateIdx)
