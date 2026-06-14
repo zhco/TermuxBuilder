@@ -66,62 +66,38 @@ class ProjectActivity : AppCompatActivity() {
     private fun triggerBuild() {
         Toast.makeText(this, "正在准备编译...", Toast.LENGTH_SHORT).show()
 
-        // Copy project to /data/local/tmp/ — public writable, both apps can access
         val buildDir = "/data/local/tmp/tb_$projectName"
+        val buildCmd = "cd \"$buildDir\" && chmod +x gradlew 2>/dev/null && ./gradlew assembleDebug && echo '' && echo '>> APK:' && find app/build/outputs/apk -name '*.apk'"
 
-        var copyOk = false
+        // Try direct copy first
+        var ok = false
         try {
             val dest = File(buildDir)
             dest.deleteRecursively()
             File(projectPath).copyRecursively(dest, overwrite = true)
-            copyOk = true
-        } catch (e: Exception) {
-            // Fallback: keep in app dir, generate inline script
-        }
+            ok = true
+        } catch (_: Exception) {}
 
-        val workDir = if (copyOk) buildDir else projectPath
-
-        // Generate build script
-        val scriptFile = File(workDir, "build.sh")
-        val script = """#!/data/data/com.termux/files/usr/bin/bash
-set -e
-echo "============================================"
-echo "  TermuxBuilder — 编译: $projectName"
-echo "============================================"
-echo ""
-cd "$workDir"
-chmod +x gradlew 2>/dev/null
-./gradlew assembleDebug
-echo ""
-echo ">> 编译完成。APK:"
-find app/build/outputs/apk -name "*.apk" 2>/dev/null
-echo ""
-"""
-        scriptFile.writeText(script)
-        scriptFile.setExecutable(true)
-
-        val runCmd = "cd \"$workDir\" && chmod +x gradlew 2>/dev/null && ./gradlew assembleDebug && echo '' && echo '>> APK:' && find app/build/outputs/apk -name '*.apk'"
-
-        if (!copyOk) {
-            // Copy via cp command in Termux — but Termux can't read app dir
-            // We write the entire project as a tar and extract in Termux
-            val tarFile = File(buildDir + ".tar")
+        if (ok) {
+            (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                .setPrimaryClip(ClipData.newPlainText("build", buildCmd))
+            Toast.makeText(this, "命令已复制，在 Termux 粘贴执行", Toast.LENGTH_LONG).show()
+        } else {
+            // Fallback: create tar and have Termux extract it
+            val tarFile = File("/data/local/tmp", "tb_${projectName}.tar")
             try {
-                // Create tar via shell
-                Runtime.getRuntime().exec(arrayOf("tar", "-cf", tarFile.absolutePath, "-C", File(projectPath).parent!!, File(projectPath).name)).waitFor()
-                val tarcmd = "mkdir -p \"$buildDir\" && tar -xf \"${tarFile.absolutePath}\" -C \"$buildDir\" && $runCmd"
+                val proc = Runtime.getRuntime().exec(arrayOf("tar", "-cf", tarFile.absolutePath, "-C", File(projectPath).parent!!, File(projectPath).name))
+                proc.waitFor()
+                val tarcmd = "mkdir -p \"$buildDir\" && tar -xf \"${tarFile.absolutePath}\" -C \"$buildDir\" && $buildCmd"
                 (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
                     .setPrimaryClip(ClipData.newPlainText("build", tarcmd))
                 Toast.makeText(this, "命令已复制，在 Termux 粘贴执行", Toast.LENGTH_LONG).show()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                    .setPrimaryClip(ClipData.newPlainText("build", runCmd))
-                Toast.makeText(this, "无法写入公共目录\n请用文件管理器将项目复制到 Termux 目录后粘贴命令", Toast.LENGTH_LONG).show()
+                    .setPrimaryClip(ClipData.newPlainText("build", "echo '错误: 无法准备项目文件'"))
+                Toast.makeText(this, "准备失败: ${e.message}", Toast.LENGTH_LONG).show()
+                return
             }
-        } else {
-            (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                .setPrimaryClip(ClipData.newPlainText("build", runCmd))
-            Toast.makeText(this, "命令已复制，在 Termux 粘贴执行", Toast.LENGTH_LONG).show()
         }
 
         // Launch Termux
