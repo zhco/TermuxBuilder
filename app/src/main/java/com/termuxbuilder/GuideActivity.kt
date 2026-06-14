@@ -405,7 +405,7 @@ kotlin.incremental=true""")
         append("\n")
     }
 
-    private fun section(title: String, titleColor: Int, body: SpannableStringBuilder.() -> Unit) {
+    private fun SpannableStringBuilder.section(title: String, titleColor: Int, body: SpannableStringBuilder.() -> Unit) {
         val start = length
         append("▎ $title\n")
         setSpan(ForegroundColorSpan(titleColor), start, length - 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -413,7 +413,7 @@ kotlin.incremental=true""")
         append("\n")
     }
 
-    private fun sectionBold(title: String, titleColor: Int, textColor: Int, body: SpannableStringBuilder.() -> Unit) {
+    private fun SpannableStringBuilder.sectionBold(title: String, titleColor: Int, textColor: Int, body: SpannableStringBuilder.() -> Unit) {
         val start = length
         append("▌ $title\n")
         setSpan(ForegroundColorSpan(titleColor), start, length - 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
