@@ -1,25 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission"
+        xmlns:tools="http://schemas.android.com/tools" />
+
     <application
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
-        android:label="Termux 编译助手"
+        android:label="TermuxBuilder"
         android:supportsRtl="true"
         android:theme="@style/Theme.TermuxBuilder">
 
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".GuideActivity"
-            android:parentActivityName=".MainActivity" />
+        <activity android:name=".CreateProjectActivity"
+            android:label="创建项目" />
+
+        <activity android:name=".ProjectActivity"
+            android:label="项目详情" />
+
+        <activity android:name=".EditorActivity"
+            android:label="编辑器" />
 
     </application>
 </manifest>
