@@ -1,17 +1,23 @@
 package com.termuxbuilder
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.snackbar.Snackbar
 import java.io.File
 
 class MainActivity : AppCompatActivity() {
@@ -20,6 +26,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var emptyView: TextView
     private lateinit var fab: FloatingActionButton
     private val projects = mutableListOf<File>()
+
+    companion object {
+        private const val PERMISSION_CODE = 100
+
+        fun getProjectsDir(): File {
+            return File(Environment.getExternalStorageDirectory(), "TermuxBuilder/projects")
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,17 +46,53 @@ class MainActivity : AppCompatActivity() {
         projectList.layoutManager = LinearLayoutManager(this)
 
         fab.setOnClickListener {
-            startActivity(Intent(this, CreateProjectActivity::class.java))
+            if (checkStoragePermission()) {
+                startActivity(Intent(this, CreateProjectActivity::class.java))
+            }
+        }
+
+        if (checkStoragePermission()) {
+            loadProjects()
+        }
+    }
+
+    private fun checkStoragePermission(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return Environment.isExternalStorageManager()
+        }
+        val write = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        if (write != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE),
+                PERMISSION_CODE
+            )
+            return false
+        }
+        return true
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PERMISSION_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                loadProjects()
+            } else {
+                Snackbar.make(fab, "需要存储权限才能创建项目", Snackbar.LENGTH_INDEFINITE)
+                    .setAction("授予") { checkStoragePermission() }.show()
+            }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        loadProjects()
+        if (checkStoragePermission()) {
+            loadProjects()
+        }
     }
 
     private fun loadProjects() {
-        val dir = File(filesDir, "projects")
+        val dir = getProjectsDir()
         if (!dir.exists()) dir.mkdirs()
         projects.clear()
         dir.listFiles()?.filter { it.isDirectory }?.let { projects.addAll(it) }
@@ -95,7 +145,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             holder.itemView.setOnLongClickListener {
-                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                AlertDialog.Builder(this@MainActivity)
                     .setTitle("删除项目")
                     .setMessage("确定删除 ${project.name}？")
                     .setPositiveButton("删除") { _, _ ->
