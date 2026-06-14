@@ -5,7 +5,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.os.Environment
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
@@ -65,36 +64,15 @@ class ProjectActivity : AppCompatActivity() {
     }
 
     private fun triggerBuild() {
-        // Copy project to /sdcard so Termux can access it
-        val destDir = File(Environment.getExternalStorageDirectory(), "TermuxBuilder/projects/$projectName")
-        try {
-            destDir.deleteRecursively()
-            File(projectPath).copyRecursively(destDir, overwrite = true)
-        } catch (e: Exception) {
-            // Try Termux home directory as fallback
-            val termuxHome = File("/data/data/com.termux/files/home")
-            if (termuxHome.exists()) {
-                val fallbackDir = File(termuxHome, "projects/$projectName")
-                try {
-                    fallbackDir.deleteRecursively()
-                    File(projectPath).copyRecursively(fallbackDir, overwrite = true)
-                    prepareBuild(fallbackDir.absolutePath)
-                    return
-                } catch (e2: Exception) {
-                    Toast.makeText(this, "复制失败: ${e2.message}\n请手动将项目复制到 Termux 目录", Toast.LENGTH_LONG).show()
-                    return
-                }
-            }
-        }
-        prepareBuild(destDir.absolutePath)
-    }
+        Toast.makeText(this, "正在准备编译...", Toast.LENGTH_SHORT).show()
 
-    private fun prepareBuild(targetPath: String) {
-        val buildScript = File(targetPath, "build.sh")
+        // Write build script inside project dir
+        val buildScript = File(projectPath, "build.sh")
         val script = """#!/data/data/com.termux/files/usr/bin/bash
 echo ">> 编译: $projectName"
 echo ""
-cd "$targetPath"
+cd "$projectPath"
+chmod +x gradlew 2>/dev/null
 ./gradlew assembleDebug 2>&1
 echo ""
 echo ">> 编译完成。APK 路径:"
@@ -103,12 +81,26 @@ find app/build/outputs/apk -name "*.apk" 2>/dev/null
         buildScript.writeText(script)
         buildScript.setExecutable(true)
 
-        val cmd = "cd \"$targetPath\" && chmod +x build.sh && ./build.sh"
+        // Copy the entire project to clipboard as copy command for Termux
+        val destDir = "/data/data/com.termux/files/home/projects/$projectName"
+        val copyCmd = "rm -rf \"$destDir\" && cp -r \"$projectPath\" \"$destDir\" && chmod +x \"$destDir/build.sh\""
+        val runCmd = "$copyCmd && cd \"$destDir\" && ./build.sh"
+
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("build", cmd))
+        clipboard.setPrimaryClip(ClipData.newPlainText("build", runCmd))
 
-        Toast.makeText(this, "项目已复制，命令已复制到剪贴板", Toast.LENGTH_LONG).show()
+        // Try to copy directly if possible
+        try {
+            val dest = File("/data/data/com.termux/files/home/projects/$projectName")
+            dest.parentFile?.mkdirs()
+            dest.deleteRecursively()
+            File(projectPath).copyRecursively(dest, overwrite = true)
+            dest.resolve("build.sh").setExecutable(true)
+        } catch (_: Exception) {}
 
+        Toast.makeText(this, "编译命令已复制到剪贴板\n在 Termux 中粘贴执行", Toast.LENGTH_LONG).show()
+
+        // Launch Termux
         try {
             val intent = Intent(Intent.ACTION_MAIN).apply {
                 setClassName("com.termux", "com.termux.app.TermuxActivity")
@@ -116,7 +108,7 @@ find app/build/outputs/apk -name "*.apk" 2>/dev/null
             }
             startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(this, "未检测到 Termux", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "未检测到 Termux，请手动打开并粘贴命令", Toast.LENGTH_LONG).show()
         }
     }
 
