@@ -15,9 +15,11 @@ import androidx.recyclerview.widget.RecyclerView
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import java.io.ByteArrayOutputStream
 import java.io.File
-import java.util.zip.GZIPOutputStream
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 class ProjectActivity : AppCompatActivity() {
 
@@ -66,6 +68,17 @@ class ProjectActivity : AppCompatActivity() {
         }
     }
 
+    private fun zipDir(srcDir: File, destFile: File) {
+        ZipOutputStream(FileOutputStream(destFile)).use { zip ->
+            srcDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                val relPath = file.relativeTo(srcDir).path
+                zip.putNextEntry(ZipEntry(relPath))
+                FileInputStream(file).use { it.copyTo(zip) }
+                zip.closeEntry()
+            }
+        }
+    }
+
     private fun triggerBuild() {
         Toast.makeText(this, "正在打包项目...", Toast.LENGTH_SHORT).show()
 
@@ -74,12 +87,10 @@ class ProjectActivity : AppCompatActivity() {
 
         Thread {
             try {
-                val tarFile = File(cacheDir, "proj.tar.gz")
-                val projectDir = File(projectPath)
-                tarDir(projectDir, tarFile)
+                val zipFile = File(cacheDir, "proj.zip")
+                zipDir(File(projectPath), zipFile)
 
-                val tarBytes = tarFile.readBytes()
-                val b64 = Base64.encodeToString(tarBytes, Base64.NO_WRAP)
+                val b64 = Base64.encodeToString(zipFile.readBytes(), Base64.NO_WRAP)
 
                 val targetDir = "/data/data/com.termux/files/home/projects/$projectName"
                 val D = "${'$'}"
@@ -87,11 +98,17 @@ class ProjectActivity : AppCompatActivity() {
                     "DIR=\"$targetDir\"\n" +
                     "mkdir -p \"${D}DIR\" && cd \"${D}DIR\" || exit 1\n" +
                     "echo '>>> 解压项目...'\n" +
-                    "base64 -d << 'B64EOF' | gunzip | tar -xf -\n" +
+                    "base64 -d << 'B64EOF' > _proj.zip\n" +
                     "$b64\n" +
                     "B64EOF\n" +
+                    "unzip -o _proj.zip && rm _proj.zip\n" +
+                    "# Download wrapper jar if missing\n" +
+                    "if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then\n" +
+                    "  echo '>>> 下载 Gradle Wrapper...'\n" +
+                    "  mkdir -p gradle/wrapper\n" +
+                    "  curl -L -o gradle/wrapper/gradle-wrapper.jar https://repo1.maven.org/maven2/org/gradle/gradle-wrapper/8.9/gradle-wrapper-8.9.jar\n" +
+                    "fi\n" +
                     "echo '>>> 开始编译...'\n" +
-                    "echo ''\n" +
                     "chmod +x gradlew 2>/dev/null\n" +
                     "./gradlew assembleDebug\n" +
                     "echo ''\n" +
@@ -122,55 +139,6 @@ class ProjectActivity : AppCompatActivity() {
                 }
             }
         }.start()
-    }
-
-    private fun tarDir(srcDir: File, destFile: File) {
-        val baos = ByteArrayOutputStream()
-        val gzos = GZIPOutputStream(baos)
-        tarDirRecursive(gzos, srcDir, "")
-        gzos.close()
-        destFile.writeBytes(baos.toByteArray())
-    }
-
-    private fun tarDirRecursive(out: java.io.OutputStream, dir: File, prefix: String) {
-        dir.listFiles()?.sortedBy { it.name }?.forEach { file ->
-            val relPath = if (prefix.isEmpty()) file.name else "$prefix/${file.name}"
-            if (file.isDirectory) {
-                tarDirRecursive(out, file, relPath)
-            } else {
-                val header = buildTarHeader(relPath, file.length())
-                out.write(header)
-                file.inputStream().use { input ->
-                    val buf = ByteArray(4096)
-                    var len: Int
-                    while (input.read(buf).also { len = it } > 0) {
-                        out.write(buf, 0, len)
-                    }
-                }
-                val pad = (512 - (file.length() % 512)) % 512
-                if (pad > 0) out.write(ByteArray(pad.toInt()))
-            }
-        }
-    }
-
-    private fun buildTarHeader(name: String, size: Long): ByteArray {
-        val header = ByteArray(512)
-        val nameBytes = name.toByteArray(Charsets.UTF_8)
-        System.arraycopy(nameBytes, 0, header, 0, minOf(nameBytes.size, 100))
-        "0000644\u0000".toByteArray().copyInto(header, 100)
-        "0000000\u0000".toByteArray().copyInto(header, 108)
-        "0000000\u0000".toByteArray().copyInto(header, 116)
-        val sizeOctal = String.format("%011o\u0000", size).toByteArray()
-        sizeOctal.copyInto(header, 124)
-        val mtime = String.format("%011o\u0000", System.currentTimeMillis() / 1000).toByteArray()
-        mtime.copyInto(header, 136)
-        header[156] = '0'.code.toByte()
-        for (i in 148..155) header[i] = ' '.code.toByte()
-        var sum = 0L
-        for (b in header) sum += b.toLong() and 0xFF
-        val cksum = String.format("%06o\u0000 ", sum).toByteArray()
-        cksum.copyInto(header, 148)
-        return header
     }
 
     inner class FileAdapter(private val items: List<File>) :
