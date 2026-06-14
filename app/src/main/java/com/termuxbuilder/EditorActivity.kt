@@ -26,6 +26,8 @@ class EditorActivity : AppCompatActivity() {
         val fileName = intent.getStringExtra("file_name") ?: ""
         title = fileName
 
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
         editor = findViewById(R.id.code_editor)
         editor.typeface = Typeface.MONOSPACE
         editor.setTextSize(13f)
@@ -49,6 +51,16 @@ class EditorActivity : AppCompatActivity() {
         })
     }
 
+    private fun save() {
+        try {
+            File(filePath).writeText(editor.text.toString())
+            modified = false
+            Toast.makeText(this, "已保存", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "保存失败: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menu.add(0, 1, 0, "保存").setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
         return true
@@ -56,13 +68,11 @@ class EditorActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == 1) {
-            try {
-                File(filePath).writeText(editor.text.toString())
-                modified = false
-                Toast.makeText(this, "已保存", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Toast.makeText(this, "保存失败: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
+            save()
+            return true
+        }
+        if (item.itemId == android.R.id.home) {
+            onBackPressed()
             return true
         }
         return super.onOptionsItemSelected(item)
@@ -71,9 +81,12 @@ class EditorActivity : AppCompatActivity() {
     override fun onBackPressed() {
         if (modified) {
             androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("未保存的更改")
-                .setMessage("是否放弃更改？")
-                .setPositiveButton("放弃") { _, _ -> super.onBackPressed() }
+                .setTitle("有未保存的更改")
+                .setPositiveButton("保存并退出") { _, _ ->
+                    save()
+                    super.onBackPressed()
+                }
+                .setNeutralButton("放弃") { _, _ -> super.onBackPressed() }
                 .setNegativeButton("取消", null)
                 .show()
         } else {
