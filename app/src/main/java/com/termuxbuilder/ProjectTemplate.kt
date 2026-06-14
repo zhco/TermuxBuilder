@@ -89,6 +89,15 @@ exec "${D}JAVACMD" ${D}DEFAULT_JVM_OPTS ${D}JAVA_OPTS ${D}GRADLE_OPTS "-Dorg.gra
 """
         File(root, "gradlew").writeText(gradlewScript)
         File(root, "gradlew").setExecutable(true)
+        // Copy gradle-wrapper.jar from res/raw
+        try {
+            ctx.resources.openRawResource(R.raw.gradle_wrapper).use { input ->
+                File(root, "gradle/wrapper/gradle-wrapper.jar").outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+        } catch (_: Exception) {}
+
 
 
 
