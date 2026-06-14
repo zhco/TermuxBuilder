@@ -5,7 +5,6 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Terminal prompt symbol -->
     <path
         android:pathData="M30,40 L18,54 L30,68"
         android:strokeWidth="4"
@@ -14,12 +13,10 @@
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
 
-    <!-- Cursor block -->
     <path
         android:fillColor="#00E676"
         android:pathData="M36,38 L36,70 L46,70 L46,64 L42,64 L42,38 Z" />
 
-    <!-- Second line -->
     <path
         android:fillColor="#00E676"
         android:pathData="M44,72 L44,78 L36,78 L36,72 Z" />
