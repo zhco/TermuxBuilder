@@ -106,7 +106,7 @@ class ProjectActivity : AppCompatActivity() {
                     "if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then\n" +
                     "  echo '>>> 下载 Gradle Wrapper...'\n" +
                     "  mkdir -p gradle/wrapper\n" +
-                    "  curl -L -o gradle/wrapper/gradle-wrapper.jar https://repo1.maven.org/maven2/org/gradle/gradle-wrapper/8.9/gradle-wrapper-8.9.jar\n" +
+                    "  curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.9.0/gradle/wrapper/gradle-wrapper.jar\n" +
                     "fi\n" +
                     "echo '>>> 开始编译...'\n" +
                     "chmod +x gradlew 2>/dev/null\n" +
