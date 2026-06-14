@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">TermuxBuilder</string>
+    <string-array name="min_sdk_values">
+        <item>21</item>
+        <item>24</item>
+        <item>26</item>
+        <item>29</item>
+        <item>31</item>
+        <item>34</item>
+    </string-array>
+    <string-array name="template_names">
+        <item>空 Activity</item>
+    </string-array>
+</resources>
