@@ -112,19 +112,43 @@ class ProjectActivity : AppCompatActivity() {
                     "echo ''\n"
 
                 runOnUiThread {
-                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("build", script))
                     btnBuild.isEnabled = true
                     btnBuild.text = "编译"
-                    Toast.makeText(this, "已复制，长按粘贴到 Termux 执行", Toast.LENGTH_LONG).show()
 
+                    // Clipboard
                     try {
-                        val intent = Intent(Intent.ACTION_MAIN).apply {
-                            setClassName("com.termux", "com.termux.app.TermuxActivity")
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        startActivity(intent)
+                        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("build", script))
                     } catch (_: Exception) {}
+
+                    // Show dialog with command for manual copy
+                    val builder = android.app.AlertDialog.Builder(this)
+                    builder.setTitle("编译命令已生成")
+                    builder.setMessage("命令已复制到剪贴板。\n如粘贴失败，可长按下方文本手动复制：")
+                    val input = android.widget.EditText(this)
+                    input.setText(script)
+                    input.setTextIsSelectable(true)
+                    input.setHorizontallyScrolling(true)
+                    input.setTextColor(0xFF00E676.toInt())
+                    input.setBackgroundColor(0xFF111111.toInt())
+                    input.textSize = 10f
+                    input.minLines = 4
+                    input.maxLines = 10
+                    builder.setView(input)
+                    builder.setPositiveButton("打开 Termux") { _, _ ->
+                        try {
+                            val intent = Intent(Intent.ACTION_MAIN).apply {
+                                setClassName("com.termux", "com.termux.app.TermuxActivity")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(intent)
+                        } catch (_: Exception) {
+                            Toast.makeText(this@ProjectActivity, "未安装 Termux", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    builder.setNegativeButton("关闭", null)
+                    builder.setCancelable(true)
+                    builder.show()
                 }
             } catch (e: Exception) {
                 runOnUiThread {
