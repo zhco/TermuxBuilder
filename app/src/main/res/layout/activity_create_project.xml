@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#080808"
+    android:padding="20dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="创建新项目"
+        android:textColor="#00E676"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:paddingBottom="24dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="项目名称"
+        android:textColor="#AAAAAA"
+        android:textSize="13sp"
+        android:paddingBottom="6dp" />
+
+    <EditText
+        android:id="@+id/input_project_name"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="#1A1A1A"
+        android:hint="MyApplication"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#444444"
+        android:padding="12dp"
+        android:inputType="text"
+        android:singleLine="true" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="包名"
+        android:textColor="#AAAAAA"
+        android:textSize="13sp"
+        android:paddingTop="16dp"
+        android:paddingBottom="6dp" />
+
+    <EditText
+        android:id="@+id/input_package_name"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="#1A1A1A"
+        android:hint="com.example.myapp"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#444444"
+        android:padding="12dp"
+        android:inputType="textUri"
+        android:singleLine="true" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="最低 SDK 版本"
+        android:textColor="#AAAAAA"
+        android:textSize="13sp"
+        android:paddingTop="16dp"
+        android:paddingBottom="6dp" />
+
+    <Spinner
+        android:id="@+id/spinner_min_sdk"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="#1A1A1A" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="模板"
+        android:textColor="#AAAAAA"
+        android:textSize="13sp"
+        android:paddingTop="16dp"
+        android:paddingBottom="6dp" />
+
+    <Spinner
+        android:id="@+id/spinner_template"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="#1A1A1A" />
+
+    <Button
+        android:id="@+id/btn_create"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="32dp"
+        android:text="创建项目"
+        android:textColor="#000000"
+        android:backgroundTint="#00E676" />
+
+</LinearLayout>
