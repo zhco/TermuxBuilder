@@ -128,7 +128,7 @@ class ProjectActivity : AppCompatActivity() {
                     // Show dialog with command for manual copy
                     val builder = android.app.AlertDialog.Builder(this)
                     builder.setTitle("编译就绪")
-                    builder.setMessage("项目已导出到：\n${'$'}zipPath\n\n命令已复制，在 Termux 粘贴执行即可")
+                    builder.setMessage("项目已导出到：\n$zipPath\n\n命令已复制，在 Termux 粘贴执行即可")
                     val input = android.widget.EditText(this)
                     input.setText(script)
                     input.setTextIsSelectable(true)
