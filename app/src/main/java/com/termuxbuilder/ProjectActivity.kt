@@ -209,7 +209,52 @@ zipStorePath=wrapper/dists
         // app/build.gradle.kts
         val appGradle = File(root, "app/build.gradle.kts")
         if (!appGradle.exists()) {
-            appGradle.writeText("""plugins {
+            // Check if the project uses Jetpack Compose
+            val hasCompose = kotlin.runCatching {
+                val srcDir = File(root, "app/src/main/java")
+                srcDir.walkTopDown().filter { it.extension == "kt" }.any { file ->
+                    file.readText().contains("import androidx.compose")
+                }
+            }.getOrDefault(false)
+
+            if (hasCompose) {
+                appGradle.writeText("""plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+android {
+    namespace = "com.codeeditor.app"
+    compileSdk = 34
+    defaultConfig {
+        applicationId = "com.codeeditor.app"
+        minSdk = 26
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
+    }
+    buildTypes { release { isMinifyEnabled = false } }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = "17" }
+    buildFeatures { compose = true }
+    composeOptions { kotlinCompilerExtensionVersion = "1.5.8" }
+}
+dependencies {
+    implementation(platform("androidx.compose:compose-bom:2024.01.00"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.runtime:runtime")
+    implementation("androidx.activity:activity-compose:1.8.2")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    implementation("androidx.core:core-ktx:1.12.0")
+}
+""")
+            } else {
+                appGradle.writeText("""plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
