@@ -12,6 +12,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import android.view.Menu
+import android.view.MenuItem
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -33,6 +35,8 @@ class ProjectActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_project)
 
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
         projectPath = intent.getStringExtra("project_path") ?: return finish()
         projectName = intent.getStringExtra("project_name") ?: ""
 
@@ -50,6 +54,24 @@ class ProjectActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         loadFiles()
+    }
+
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menu.add(0, 100, 0, "新建文件").setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == 100) {
+            createNewFile()
+            return true
+        }
+        if (item.itemId == android.R.id.home) {
+            onBackPressed()
+            return true
+        }
+        return super.onOptionsItemSelected(item)
     }
 
     private fun loadFiles() {
@@ -200,6 +222,46 @@ class ProjectActivity : AppCompatActivity() {
                 }
             }
         }.start()
+    }
+
+
+    private fun createNewFile() {
+        val input = android.widget.EditText(this)
+        input.hint = "输入文件名，如 dialog_activation.xml"
+        input.setTextColor(0xFFFFFFFF.toInt())
+        input.setHintTextColor(0xFF888888.toInt())
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("新建文件")
+            .setView(input)
+            .setPositiveButton("创建") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isEmpty()) {
+                    Toast.makeText(this, "文件名不能为空", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                val newFile = File(projectPath, name)
+                if (newFile.exists()) {
+                    Toast.makeText(this, "文件已存在", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                try {
+                    newFile.parentFile?.mkdirs()
+                    newFile.createNewFile()
+                    newFile.writeText("")  // Create empty file
+                    loadFiles()
+                    Toast.makeText(this, "已创建: $name", Toast.LENGTH_SHORT).show()
+                    // Automatically open in editor
+                    val intent = Intent(this@ProjectActivity, EditorActivity::class.java)
+                    intent.putExtra("file_path", newFile.absolutePath)
+                    intent.putExtra("file_name", newFile.name)
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(this, "创建失败: ${"$"}{e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     inner class FileAdapter(private val items: List<File>) :
