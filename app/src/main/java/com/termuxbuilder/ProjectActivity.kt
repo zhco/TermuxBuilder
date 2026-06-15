@@ -31,16 +31,30 @@ class ProjectActivity : AppCompatActivity() {
         private const val TYPE_QUICK = 3
 
         // 项目首页常用文件（相对路径）
+        // 常用文件（相对项目根目录）。MainActivity.kt 的包路径动态查找。
         private val QUICK_FILES = listOf(
             "app/src/main/AndroidManifest.xml",
             "app/build.gradle.kts",
-            "app/src/main/java/com/termuxbuilder/MainActivity.kt",
             "app/src/main/res/layout/activity_main.xml",
             "app/src/main/res/values/strings.xml",
             "app/src/main/res/values/colors.xml",
-            "app/src/main/res/values/styles.xml",
-            "app/src/main/res/mipmap-hdpi/ic_launcher.png"
+            "app/src/main/res/values/themes.xml",
+            "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml"
         )
+
+        private fun resolveQuickFiles(): List<String> {
+            val result = mutableListOf<String>()
+            // 动态查找 MainActivity.kt
+            val javaDir = File(projectPath, "app/src/main/java")
+            if (javaDir.exists()) {
+                javaDir.walkTopDown().filter { it.isFile && it.name == "MainActivity.kt" }.forEach {
+                    result.add(it.relativeTo(File(projectPath)).path)
+                }
+            }
+            // 静态路径
+            result.addAll(QUICK_FILES.filter { File(projectPath, it).exists() })
+            return result
+        }
     }
 
     private lateinit var projectPath: String
@@ -310,21 +324,16 @@ class ProjectActivity : AppCompatActivity() {
 
         private val hasParent: Boolean get() = currentPath != projectPath
         private val hasQuick: Boolean get() = currentPath == projectPath
-
-        // 首页: [quick1, quick2, quick3] + files...
-        // 子目录: [..] + files...
-        private fun realItemsBefore(): Int {
-            return if (hasQuick) 0 else 0  // quick items handled separately
-        }
+        private val quickItems: List<String> by lazy { if (hasQuick) resolveQuickFiles() else emptyList() }
 
         private fun parentOffset(): Int = if (hasParent) 1 else 0
-        private fun quickCount(): Int = if (hasQuick) QUICK_FILES.size else 0
+        private fun quickCount(): Int = if (hasQuick) quickItems.size else 0
 
         override fun getItemViewType(position: Int): Int {
             if (hasParent && position == 0) return TYPE_PARENT
             if (hasQuick) {
                 val qi = if (hasParent) position - 1 else position
-                if (qi < QUICK_FILES.size) return TYPE_QUICK
+                if (qi < quickItems.size) return TYPE_QUICK
             }
             val fileIdx = position - parentOffset() - quickCount()
             val file = items[fileIdx]
@@ -354,18 +363,11 @@ class ProjectActivity : AppCompatActivity() {
 
             if (getItemViewType(position) == TYPE_QUICK) {
                 val qi = if (hasParent) position - 1 else position
-                val quickPath = QUICK_FILES[qi]
+                val quickPath = quickItems[qi]
                 val file = File(projectPath, quickPath)
-                val exists = file.exists()
-                holder.nameText.text = if (exists) "\u2B50 $quickPath" else "\u274C $quickPath"
-                holder.nameText.setTextColor(if (exists) 0xFFFFD700.toInt() else 0xFF666666.toInt())
-                holder.itemView.setOnClickListener {
-                    if (exists) {
-                        openFile(file)
-                    } else {
-                        Toast.makeText(this@ProjectActivity, "文件不存在: $quickPath", Toast.LENGTH_SHORT).show()
-                    }
-                }
+                holder.nameText.text = "\u2B50 $quickPath"
+                holder.nameText.setTextColor(0xFFFFD700.toInt())
+                holder.itemView.setOnClickListener { openFile(file) }
                 return
             }
 
