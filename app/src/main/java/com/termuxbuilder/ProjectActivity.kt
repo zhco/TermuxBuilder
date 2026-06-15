@@ -175,20 +175,22 @@ include(":app")
 """)
         }
         // gradlew
-        val gradlewFile = File(root, "gradlew")
+                val gradlewFile = File(root, "gradlew")
         if (!gradlewFile.exists()) {
-            gradlewFile.writeText("""#!/data/data/com.termux/files/usr/bin/bash
-cd "${${'$'}}(dirname "${${'$'}}0")" || exit 1
-CLASSPATH=${${'$'}}(pwd)/gradle/wrapper/gradle-wrapper.jar
-if [ ! -f "${${'$'}}CLASSPATH" ]; then
+            val D = "${'$'}"
+            val gradlewScript = """#!/data/data/com.termux/files/usr/bin/bash
+cd "${D}(dirname "${D}0")" || exit 1
+CLASSPATH=${D}(pwd)/gradle/wrapper/gradle-wrapper.jar
+if [ ! -f "${D}CLASSPATH" ]; then
     echo ">>> download gradle-wrapper.jar..."
     mkdir -p gradle/wrapper
-    curl -fsSL -o "${${'$'}}CLASSPATH" "https://raw.githubusercontent.com/zhco/TermuxBuilder/main/app/src/main/res/raw/gradle_wrapper.jar" || {
+    curl -fsSL -o "${D}CLASSPATH" "https://raw.githubusercontent.com/zhco/TermuxBuilder/main/app/src/main/res/raw/gradle_wrapper.jar" || {
         echo "ERROR: cannot download gradle-wrapper.jar"; exit 1
     }
 fi
-exec java -classpath "${${'$'}}CLASSPATH" org.gradle.wrapper.GradleWrapperMain "${${'$'}}@"
-""")
+exec java -classpath "${D}CLASSPATH" org.gradle.wrapper.GradleWrapperMain "${D}@"
+"""
+            gradlewFile.writeText(gradlewScript)
             gradlewFile.setExecutable(true)
         }
         // gradle-wrapper.properties
