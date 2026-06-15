@@ -6,7 +6,7 @@ import android.text.TextWatcher
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import android.widget.Button
+import android.widget.TextView
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Toast
@@ -70,23 +70,23 @@ class EditorActivity : AppCompatActivity() {
         replaceInput = findViewById(R.id.replace_input)
 
         // Toolbar buttons
-        findViewById<Button>(R.id.btn_select_all).setOnClickListener { editor.selectAll() }
-        findViewById<Button>(R.id.btn_cut).setOnClickListener { cut() }
-        findViewById<Button>(R.id.btn_copy).setOnClickListener { copy() }
-        findViewById<Button>(R.id.btn_paste).setOnClickListener { paste() }
-        findViewById<Button>(R.id.btn_search).setOnClickListener { toggleSearch() }
-        findViewById<Button>(R.id.btn_replace).setOnClickListener { toggleReplace() }
-        findViewById<Button>(R.id.btn_undo).setOnClickListener {
+        findViewById<TextView>(R.id.btn_select_all).setOnClickListener { editor.selectAll() }
+        findViewById<TextView>(R.id.btn_cut).setOnClickListener { cut() }
+        findViewById<TextView>(R.id.btn_copy).setOnClickListener { copy() }
+        findViewById<TextView>(R.id.btn_paste).setOnClickListener { paste() }
+        findViewById<TextView>(R.id.btn_search).setOnClickListener { toggleSearch() }
+        findViewById<TextView>(R.id.btn_replace).setOnClickListener { toggleReplace() }
+        findViewById<TextView>(R.id.btn_undo).setOnClickListener {
             editor.text?.let { if (it is android.text.Editable) editor.onTextContextMenuItem(android.R.id.undo) }
         }
-        findViewById<Button>(R.id.btn_redo).setOnClickListener {
+        findViewById<TextView>(R.id.btn_redo).setOnClickListener {
             editor.text?.let { if (it is android.text.Editable) editor.onTextContextMenuItem(android.R.id.redo) }
         }
 
         // Search bar buttons
-        findViewById<Button>(R.id.btn_search_prev).setOnClickListener { searchPrev() }
-        findViewById<Button>(R.id.btn_search_next).setOnClickListener { searchNext() }
-        findViewById<Button>(R.id.btn_search_close).setOnClickListener { closeSearch() }
+        findViewById<TextView>(R.id.btn_search_prev).setOnClickListener { searchPrev() }
+        findViewById<TextView>(R.id.btn_search_next).setOnClickListener { searchNext() }
+        findViewById<TextView>(R.id.btn_search_close).setOnClickListener { closeSearch() }
 
         // Search input: search on enter
         searchInput.setOnEditorActionListener { _, _, _ ->
@@ -95,9 +95,9 @@ class EditorActivity : AppCompatActivity() {
         }
 
         // Replace bar buttons
-        findViewById<Button>(R.id.btn_replace_one).setOnClickListener { replaceOne() }
-        findViewById<Button>(R.id.btn_replace_all).setOnClickListener { replaceAll() }
-        findViewById<Button>(R.id.btn_replace_close).setOnClickListener { closeReplace() }
+        findViewById<TextView>(R.id.btn_replace_one).setOnClickListener { replaceOne() }
+        findViewById<TextView>(R.id.btn_replace_all).setOnClickListener { replaceAll() }
+        findViewById<TextView>(R.id.btn_replace_close).setOnClickListener { closeReplace() }
     }
 
     // ---- clipboard helpers ----
