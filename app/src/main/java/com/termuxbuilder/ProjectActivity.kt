@@ -90,19 +90,22 @@ class ProjectActivity : AppCompatActivity() {
                 val zipFile = File(cacheDir, "proj.zip")
                 zipDir(File(projectPath), zipFile)
 
-                val b64 = Base64.encodeToString(zipFile.readBytes(), Base64.NO_WRAP)
+                // Write to Download dir (no extra permission on API 29+)
+                val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS)
+                val destDir = File(downloadDir, "TermuxBuilder")
+                destDir.mkdirs()
+                val destFile = File(destDir, "${'$'}{projectName}.zip")
+                zipFile.copyTo(destFile, overwrite = true)
 
-                val targetDir = "/data/data/com.termux/files/home/projects/$projectName"
-                val D = "${'$'}"
+                val targetDir = "/data/data/com.termux/files/home/projects/${'$'}projectName"
+                val zipPath = destFile.absolutePath
+                val D = "${'$'}{'$'}"
                 val script = "#!/data/data/com.termux/files/usr/bin/bash\n" +
-                    "DIR=\"$targetDir\"\n" +
-                    "mkdir -p \"${D}DIR\" && cd \"${D}DIR\" || exit 1\n" +
+                    "DIR=\"${'$'}targetDir\"\n" +
+                    "mkdir -p \"${'$'}{D}DIR\" && cd \"${'$'}{D}DIR\" || exit 1\n" +
                     "echo '>>> 解压项目...'\n" +
-                    "base64 -d << 'B64EOF' > _proj.zip\n" +
-                    "$b64\n" +
-                    "B64EOF\n" +
-                    "unzip -o _proj.zip && rm _proj.zip\n" +
-
+                    "unzip -o \"${'$'}zipPath\"\n" +
                     "echo '>>> 开始编译...'\n" +
                     "chmod +x gradlew 2>/dev/null\n" +
                     "./gradlew assembleDebug\n" +
@@ -123,8 +126,8 @@ class ProjectActivity : AppCompatActivity() {
 
                     // Show dialog with command for manual copy
                     val builder = android.app.AlertDialog.Builder(this)
-                    builder.setTitle("编译命令已生成")
-                    builder.setMessage("命令已复制到剪贴板。\n如粘贴失败，可长按下方文本手动复制：")
+                    builder.setTitle("编译就绪")
+                    builder.setMessage("项目已导出到：\n${'$'}zipPath\n\n命令已复制，在 Termux 粘贴执行即可")
                     val input = android.widget.EditText(this)
                     input.setText(script)
                     input.setTextIsSelectable(true)
@@ -132,8 +135,8 @@ class ProjectActivity : AppCompatActivity() {
                     input.setTextColor(0xFF00E676.toInt())
                     input.setBackgroundColor(0xFF111111.toInt())
                     input.textSize = 10f
-                    input.minLines = 4
-                    input.maxLines = 10
+                    input.minLines = 3
+                    input.maxLines = 8
                     builder.setView(input)
                     builder.setPositiveButton("打开 Termux") { _, _ ->
                         try {
@@ -154,7 +157,7 @@ class ProjectActivity : AppCompatActivity() {
                 runOnUiThread {
                     btnBuild.isEnabled = true
                     btnBuild.text = "编译"
-                    Toast.makeText(this, "打包失败: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "打包失败: ${'$'}{e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }.start()
