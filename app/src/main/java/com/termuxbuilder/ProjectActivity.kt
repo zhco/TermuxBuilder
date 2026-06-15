@@ -140,7 +140,7 @@ class ProjectActivity : AppCompatActivity() {
                     "echo '>>> 解压项目...'\n" +
                     "unzip -o \"$zipPath\"\n" +
                     "echo '>>> 替换 Gradle 镜像源...'\n" +
-                    "sed -i 's|services.gradle.org|mirrors.cloud.tencent.com/gradle|' gradle/wrapper/gradle-wrapper.properties\n" +
+                    "sed -i 's|services.gradle.org/distributions|mirrors.cloud.tencent.com/gradle|' gradle/wrapper/gradle-wrapper.properties\n" +
                     "echo '>>> 开始编译...'\n" +
                     "chmod +x gradlew 2>/dev/null\n" +
                     "./gradlew assembleDebug\n" +
@@ -232,3 +232,4 @@ class ProjectActivity : AppCompatActivity() {
         override fun getItemCount() = items.size
     }
 }
+
