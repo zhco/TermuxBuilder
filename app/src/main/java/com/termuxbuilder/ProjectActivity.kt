@@ -178,16 +178,16 @@ include(":app")
         val gradlewFile = File(root, "gradlew")
         if (!gradlewFile.exists()) {
             gradlewFile.writeText("""#!/data/data/com.termux/files/usr/bin/bash
-cd "$(dirname "$0")" || exit 1
-CLASSPATH=$(pwd)/gradle/wrapper/gradle-wrapper.jar
-if [ ! -f "$CLASSPATH" ]; then
+cd "$$(dirname "$$0")" || exit 1
+CLASSPATH=$$(pwd)/gradle/wrapper/gradle-wrapper.jar
+if [ ! -f "$$CLASSPATH" ]; then
     echo ">>> download gradle-wrapper.jar..."
     mkdir -p gradle/wrapper
-    curl -fsSL -o "$CLASSPATH" "https://raw.githubusercontent.com/zhco/TermuxBuilder/main/app/src/main/res/raw/gradle_wrapper.jar" || {
+    curl -fsSL -o "$$CLASSPATH" "https://raw.githubusercontent.com/zhco/TermuxBuilder/main/app/src/main/res/raw/gradle_wrapper.jar" || {
         echo "ERROR: cannot download gradle-wrapper.jar"; exit 1
     }
 fi
-exec java -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
+exec java -classpath "$$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$$@"
 """)
             gradlewFile.setExecutable(true)
         }
