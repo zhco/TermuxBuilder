@@ -29,7 +29,40 @@
             android:textSize="13sp"
             android:paddingLeft="20dp"
             android:paddingRight="20dp"
-            android:paddingBottom="16dp" />
+            android:paddingBottom="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingLeft="20dp"
+            android:paddingRight="20dp"
+            android:paddingBottom="12dp">
+
+            <Button
+                android:id="@+id/btn_open_folder"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:text="打开文件夹"
+                android:textColor="#00E676"
+                android:textSize="12sp"
+                android:backgroundTint="#1A1A1A"
+                android:layout_marginEnd="8dp"
+                android:padding="0dp" />
+
+            <Button
+                android:id="@+id/btn_open_zip"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:text="打开 Zip 项目"
+                android:textColor="#00E676"
+                android:textSize="12sp"
+                android:backgroundTint="#1A1A1A"
+                android:layout_marginStart="8dp"
+                android:padding="0dp" />
+        </LinearLayout>
 
         <FrameLayout
             android:layout_width="match_parent"
