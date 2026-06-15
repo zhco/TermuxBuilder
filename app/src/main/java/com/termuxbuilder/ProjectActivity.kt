@@ -90,17 +90,32 @@ class ProjectActivity : AppCompatActivity() {
                 val zipFile = File(cacheDir, "proj.zip")
                 zipDir(File(projectPath), zipFile)
 
-                // Write to Download dir (no extra permission on API 29+)
-                val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_DOWNLOADS)
-                val destDir = File(downloadDir, "TermuxBuilder")
-                destDir.mkdirs()
-                val destFile = File(destDir, "${'$'}{projectName}.zip")
-                zipFile.copyTo(destFile, overwrite = true)
+                // Try multiple locations for the zip
+                var zipPath: String? = null
+                val cacheDest = File(cacheDir, "${projectName}.zip")
+                try {
+                    zipFile.copyTo(cacheDest, overwrite = true)
+                    zipPath = cacheDest.absolutePath
+                } catch (e1: Exception) {
+                    try {
+                        val dlDir = File(android.os.Environment.getExternalStoragePublicDirectory(
+                            android.os.Environment.DIRECTORY_DOWNLOADS), "TermuxBuilder")
+                        dlDir.mkdirs()
+                        val dlFile = File(dlDir, "${projectName}.zip")
+                        zipFile.copyTo(dlFile, overwrite = true)
+                        zipPath = dlFile.absolutePath
+                    } catch (e2: Exception) {
+                        runOnUiThread {
+                            btnBuild.isEnabled = true
+                            btnBuild.text = "编译"
+                            Toast.makeText(this@ProjectActivity, "写入失败: ${e1.message}", Toast.LENGTH_LONG).show()
+                        }
+                        return@Thread
+                    }
+                }
 
                 val targetDir = "/data/data/com.termux/files/home/projects/${projectName}"
-                val zipPath = destFile.absolutePath
-                val D = "${'$'}"
+                val D = "${"$"}${"$"}"
                 val script = "#!/data/data/com.termux/files/usr/bin/bash\n" +
                     "DIR=\"$targetDir\"\n" +
                     "mkdir -p \"${D}DIR\" && cd \"${D}DIR\" || exit 1\n" +
@@ -113,22 +128,19 @@ class ProjectActivity : AppCompatActivity() {
                     "echo '>>> 编译完成。APK:'\n" +
                     "find app/build/outputs/apk -name '*.apk' 2>/dev/null\n" +
                     "echo ''\n"
-                    "echo ''\n"
 
                 runOnUiThread {
                     btnBuild.isEnabled = true
                     btnBuild.text = "编译"
 
-                    // Clipboard
                     try {
                         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         clipboard.setPrimaryClip(ClipData.newPlainText("build", script))
                     } catch (_: Exception) {}
 
-                    // Show dialog with command for manual copy
                     val builder = android.app.AlertDialog.Builder(this)
                     builder.setTitle("编译就绪")
-                    builder.setMessage("项目已导出到：\n$zipPath\n\n命令已复制，在 Termux 粘贴执行即可")
+                    builder.setMessage("项目已导出：\n$zipPath\n\n命令已复制，在 Termux 粘贴执行即可")
                     val input = android.widget.EditText(this)
                     input.setText(script)
                     input.setTextIsSelectable(true)
@@ -158,7 +170,7 @@ class ProjectActivity : AppCompatActivity() {
                 runOnUiThread {
                     btnBuild.isEnabled = true
                     btnBuild.text = "编译"
-                    Toast.makeText(this, "打包失败: ${'$'}{e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "打包失败: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }.start()
