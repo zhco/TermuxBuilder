@@ -98,20 +98,21 @@ class ProjectActivity : AppCompatActivity() {
                 val destFile = File(destDir, "${'$'}{projectName}.zip")
                 zipFile.copyTo(destFile, overwrite = true)
 
-                val targetDir = "/data/data/com.termux/files/home/projects/${'$'}projectName"
+                val targetDir = "/data/data/com.termux/files/home/projects/${projectName}"
                 val zipPath = destFile.absolutePath
-                val D = "${'$'}{'$'}"
+                val D = "${'$'}"
                 val script = "#!/data/data/com.termux/files/usr/bin/bash\n" +
-                    "DIR=\"${'$'}targetDir\"\n" +
-                    "mkdir -p \"${'$'}{D}DIR\" && cd \"${'$'}{D}DIR\" || exit 1\n" +
+                    "DIR=\"$targetDir\"\n" +
+                    "mkdir -p \"${D}DIR\" && cd \"${D}DIR\" || exit 1\n" +
                     "echo '>>> 解压项目...'\n" +
-                    "unzip -o \"${'$'}zipPath\"\n" +
+                    "unzip -o \"$zipPath\"\n" +
                     "echo '>>> 开始编译...'\n" +
                     "chmod +x gradlew 2>/dev/null\n" +
                     "./gradlew assembleDebug\n" +
                     "echo ''\n" +
                     "echo '>>> 编译完成。APK:'\n" +
                     "find app/build/outputs/apk -name '*.apk' 2>/dev/null\n" +
+                    "echo ''\n"
                     "echo ''\n"
 
                 runOnUiThread {
