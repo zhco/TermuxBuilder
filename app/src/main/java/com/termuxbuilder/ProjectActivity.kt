@@ -149,6 +149,95 @@ class ProjectActivity : AppCompatActivity() {
         }
     }
 
+    private fun ensureBuildFiles() {
+        val root = File(projectPath)
+        // 根目录 build.gradle.kts
+        val rootGradle = File(root, "build.gradle.kts")
+        if (!rootGradle.exists()) {
+            rootGradle.writeText("""plugins {
+    id("com.android.application") version "8.2.0" apply false
+    id("org.jetbrains.kotlin.android") version "1.9.22" apply false
+}
+""")
+        }
+        // settings.gradle.kts
+        val settingsGradle = File(root, "settings.gradle.kts")
+        if (!settingsGradle.exists()) {
+            settingsGradle.writeText("""pluginManagement {
+    repositories { google(); mavenCentral(); gradlePluginPortal() }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories { google(); mavenCentral() }
+}
+rootProject.name = "$projectName"
+include(":app")
+""")
+        }
+        // gradlew
+        val gradlewFile = File(root, "gradlew")
+        if (!gradlewFile.exists()) {
+            gradlewFile.writeText("""#!/data/data/com.termux/files/usr/bin/bash
+cd "$(dirname "$0")" || exit 1
+CLASSPATH=$(pwd)/gradle/wrapper/gradle-wrapper.jar
+if [ ! -f "$CLASSPATH" ]; then
+    echo ">>> download gradle-wrapper.jar..."
+    mkdir -p gradle/wrapper
+    curl -fsSL -o "$CLASSPATH" "https://raw.githubusercontent.com/zhco/TermuxBuilder/main/app/src/main/res/raw/gradle_wrapper.jar" || {
+        echo "ERROR: cannot download gradle-wrapper.jar"; exit 1
+    }
+fi
+exec java -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
+""")
+            gradlewFile.setExecutable(true)
+        }
+        // gradle-wrapper.properties
+        val propsDir = File(root, "gradle/wrapper")
+        propsDir.mkdirs()
+        val propsFile = File(propsDir, "gradle-wrapper.properties")
+        if (!propsFile.exists()) {
+            propsFile.writeText("""distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+distributionUrl=https\://mirrors.cloud.tencent.com/gradle/gradle-8.9-bin.zip
+networkTimeout=10000
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists
+""")
+        }
+        // app/build.gradle.kts
+        val appGradle = File(root, "app/build.gradle.kts")
+        if (!appGradle.exists()) {
+            appGradle.writeText("""plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+android {
+    namespace = "com.codeeditor.app"
+    compileSdk = 34
+    defaultConfig {
+        applicationId = "com.codeeditor.app"
+        minSdk = 26
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
+    }
+    buildTypes { release { isMinifyEnabled = false } }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = "17" }
+}
+dependencies {
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+}
+""")
+        }
+    }
+
     private fun triggerBuild() {
         Toast.makeText(this, "正在打包项目...", Toast.LENGTH_SHORT).show()
 
@@ -157,6 +246,7 @@ class ProjectActivity : AppCompatActivity() {
 
         Thread {
             try {
+                ensureBuildFiles()
                 val zipFile = File(cacheDir, "proj.zip")
                 zipDir(File(projectPath), zipFile)
 
