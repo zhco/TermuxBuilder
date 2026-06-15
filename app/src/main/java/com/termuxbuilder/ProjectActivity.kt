@@ -143,8 +143,13 @@ class ProjectActivity : AppCompatActivity() {
                     "chmod +x gradlew 2>/dev/null\n" +
                     "./gradlew assembleDebug\n" +
                     "echo ''\n" +
-                    "echo '>>> 编译完成。APK:'\n" +
-                    "find app/build/outputs/apk -name '*.apk' 2>/dev/null\n" +
+                    "echo '>>> 编译完成，自动安装 APK...'\n" +
+                    "apk=\$(find app/build/outputs/apk -name '*.apk' 2>/dev/null | head -1)\n" +
+                    "if [ -n \"\${D}apk\" ]; then\n" +
+                    "    termux-open \"\${D}apk\"\n" +
+                    "else\n" +
+                    "    echo '未找到 APK'\n" +
+                    "fi\n" +
                     "echo ''\n"
 
                 runOnUiThread {
