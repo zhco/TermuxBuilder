@@ -90,28 +90,46 @@ class ProjectActivity : AppCompatActivity() {
                 val zipFile = File(cacheDir, "proj.zip")
                 zipDir(File(projectPath), zipFile)
 
-                // Try multiple locations for the zip
+                // Write to Download dir via MediaStore (works on all API 29+ without permissions)
                 var zipPath: String? = null
-                val cacheDest = File(cacheDir, "${projectName}.zip")
                 try {
-                    zipFile.copyTo(cacheDest, overwrite = true)
-                    zipPath = cacheDest.absolutePath
-                } catch (e1: Exception) {
+                    val values = android.content.ContentValues().apply {
+                        put(android.provider.MediaStore.Downloads.DISPLAY_NAME, "${projectName}.zip")
+                        put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/zip")
+                        put(android.provider.MediaStore.Downloads.RELATIVE_PATH, "Download/TermuxBuilder")
+                    }
+                    val uri = contentResolver.insert(
+                        android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    if (uri != null) {
+                        contentResolver.openOutputStream(uri)?.use { out ->
+                            zipFile.inputStream().use { inp -> inp.copyTo(out) }
+                        }
+                        // Get real path from cursor
+                        contentResolver.query(uri, arrayOf("_data"), null, null, null)?.use { cursor ->
+                            if (cursor.moveToFirst()) {
+                                zipPath = cursor.getString(0)
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+
+                // Fallback: direct file write to /sdcard/Download
+                if (zipPath == null) {
                     try {
-                        val dlDir = File(android.os.Environment.getExternalStoragePublicDirectory(
-                            android.os.Environment.DIRECTORY_DOWNLOADS), "TermuxBuilder")
-                        dlDir.mkdirs()
-                        val dlFile = File(dlDir, "${projectName}.zip")
+                        val dlFile = File("/storage/emulated/0/Download/TermuxBuilder", "${projectName}.zip")
+                        dlFile.parentFile?.mkdirs()
                         zipFile.copyTo(dlFile, overwrite = true)
                         zipPath = dlFile.absolutePath
-                    } catch (e2: Exception) {
-                        runOnUiThread {
-                            btnBuild.isEnabled = true
-                            btnBuild.text = "编译"
-                            Toast.makeText(this@ProjectActivity, "写入失败: ${e1.message}", Toast.LENGTH_LONG).show()
-                        }
-                        return@Thread
+                    } catch (_: Exception) {}
+                }
+
+                if (zipPath == null) {
+                    runOnUiThread {
+                        btnBuild.isEnabled = true
+                        btnBuild.text = "编译"
+                        Toast.makeText(this@ProjectActivity, "无法写入 Download 目录，请检查存储权限", Toast.LENGTH_LONG).show()
                     }
+                    return@Thread
                 }
 
                 val targetDir = "/data/data/com.termux/files/home/projects/${projectName}"
@@ -140,7 +158,7 @@ class ProjectActivity : AppCompatActivity() {
 
                     val builder = android.app.AlertDialog.Builder(this)
                     builder.setTitle("编译就绪")
-                    builder.setMessage("项目已导出：\n$zipPath\n\n命令已复制，在 Termux 粘贴执行即可")
+                    builder.setMessage("项目已导出：\n$zipPath\n\n在 Termux 粘贴执行即可")
                     val input = android.widget.EditText(this)
                     input.setText(script)
                     input.setTextIsSelectable(true)
