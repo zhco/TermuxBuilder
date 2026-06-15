@@ -122,7 +122,7 @@ class ProjectActivity : AppCompatActivity() {
         pathLabel.text = rel
 
         // 首页显示常用文件按钮，子目录隐藏
-        btnNewFile.visibility = if (isAtRoot()) View.VISIBLE else View.GONE
+        // 所有层级都显示新建文件按钮
     }
 
     private fun navigateTo(dir: File) {
