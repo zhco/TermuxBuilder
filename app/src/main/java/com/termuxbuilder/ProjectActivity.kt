@@ -58,7 +58,7 @@ class ProjectActivity : AppCompatActivity() {
 
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menu.add(0, 100, 0, "新建文件").setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+        menu.add(0, 100, 0, "新建文件").setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
         return true
     }
 
