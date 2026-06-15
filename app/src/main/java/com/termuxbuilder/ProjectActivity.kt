@@ -29,6 +29,8 @@ class ProjectActivity : AppCompatActivity() {
     private lateinit var projectName: String
     private lateinit var fileList: RecyclerView
     private lateinit var btnBuild: Button
+    private lateinit var pathLabel: TextView
+    private var currentPath = ""
     private var files = mutableListOf<File>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,9 +41,11 @@ class ProjectActivity : AppCompatActivity() {
 
         projectPath = intent.getStringExtra("project_path") ?: return finish()
         projectName = intent.getStringExtra("project_name") ?: ""
+        currentPath = projectPath
 
-        title = "项目: $projectName"
+        title = projectName
 
+        pathLabel = findViewById(R.id.path_label)
         fileList = findViewById(R.id.file_list)
         btnBuild = findViewById(R.id.btn_build)
 
@@ -55,7 +59,6 @@ class ProjectActivity : AppCompatActivity() {
         super.onResume()
         loadFiles()
     }
-
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menu.add(0, 100, 0, "新建文件").setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
@@ -75,19 +78,32 @@ class ProjectActivity : AppCompatActivity() {
     }
 
     private fun loadFiles() {
-        val dir = File(projectPath)
+        val dir = File(currentPath)
         files.clear()
-        collectFiles(dir)
-        files.sortBy { if (it.isDirectory) 0 else 1 }
+        dir.listFiles()?.filter {
+            !(it.name == "build" || it.name == ".gradle" || it.name.startsWith("."))
+        }?.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))?.forEach {
+            files.add(it)
+        }
         fileList.adapter = FileAdapter(files)
+
+        // Update path label
+        val rel = if (currentPath == projectPath) "/" else currentPath.removePrefix(projectPath)
+        pathLabel.text = rel
     }
 
-    private fun collectFiles(dir: File) {
-        dir.listFiles()?.sortedBy { it.name }?.forEach { file ->
-            if (file.name == "build" || file.name == ".gradle" || file.name.startsWith(".")) return@forEach
-            files.add(file)
-            if (file.isDirectory) collectFiles(file)
-        }
+    private fun navigateTo(dir: File) {
+        currentPath = dir.absolutePath
+        loadFiles()
+    }
+
+    private fun navigateUp(): Boolean {
+        if (currentPath == projectPath) return false
+        currentPath = File(currentPath).parent ?: projectPath
+        // don't go above project root
+        if (!currentPath.startsWith(projectPath)) currentPath = projectPath
+        loadFiles()
+        return true
     }
 
     private fun zipDir(srcDir: File, destFile: File) {
@@ -112,7 +128,6 @@ class ProjectActivity : AppCompatActivity() {
                 val zipFile = File(cacheDir, "proj.zip")
                 zipDir(File(projectPath), zipFile)
 
-                // Write to Download dir via MediaStore (works on all API 29+ without permissions)
                 var zipPath: String? = null
                 try {
                     val values = android.content.ContentValues().apply {
@@ -126,7 +141,6 @@ class ProjectActivity : AppCompatActivity() {
                         contentResolver.openOutputStream(uri)?.use { out ->
                             zipFile.inputStream().use { inp -> inp.copyTo(out) }
                         }
-                        // Get real path from cursor
                         contentResolver.query(uri, arrayOf("_data"), null, null, null)?.use { cursor ->
                             if (cursor.moveToFirst()) {
                                 zipPath = cursor.getString(0)
@@ -135,7 +149,6 @@ class ProjectActivity : AppCompatActivity() {
                     }
                 } catch (_: Exception) {}
 
-                // Fallback: direct file write to /sdcard/Download
                 if (zipPath == null) {
                     try {
                         val dlFile = File("/storage/emulated/0/Download/TermuxBuilder", "${projectName}.zip")
@@ -155,7 +168,7 @@ class ProjectActivity : AppCompatActivity() {
                 }
 
                 val targetDir = "/data/data/com.termux/files/home/projects/${projectName}"
-                val D = "${'$'}"
+                val D = "$"
                 val script = "#!/data/data/com.termux/files/usr/bin/bash\n" +
                     "DIR=\"$targetDir\"\n" +
                     "mkdir -p \"${D}DIR\" && cd \"${D}DIR\" || exit 1\n" +
@@ -224,15 +237,15 @@ class ProjectActivity : AppCompatActivity() {
         }.start()
     }
 
-
     private fun createNewFile() {
+        val rel = if (currentPath == projectPath) "/" else currentPath.removePrefix(projectPath)
         val input = android.widget.EditText(this)
         input.hint = "输入文件名，如 dialog_activation.xml"
         input.setTextColor(0xFFFFFFFF.toInt())
         input.setHintTextColor(0xFF888888.toInt())
 
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("新建文件")
+            .setTitle("新建文件 @ $rel")
             .setView(input)
             .setPositiveButton("创建") { _, _ ->
                 val name = input.text.toString().trim()
@@ -240,7 +253,8 @@ class ProjectActivity : AppCompatActivity() {
                     Toast.makeText(this, "文件名不能为空", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
-                val newFile = File(projectPath, name)
+                // Allow subdirectory in name (e.g. res/layout/foo.xml)
+                val newFile = File(currentPath, name)
                 if (newFile.exists()) {
                     Toast.makeText(this, "文件已存在", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
@@ -248,24 +262,45 @@ class ProjectActivity : AppCompatActivity() {
                 try {
                     newFile.parentFile?.mkdirs()
                     newFile.createNewFile()
-                    newFile.writeText("")  // Create empty file
                     loadFiles()
                     Toast.makeText(this, "已创建: $name", Toast.LENGTH_SHORT).show()
-                    // Automatically open in editor
                     val intent = Intent(this@ProjectActivity, EditorActivity::class.java)
                     intent.putExtra("file_path", newFile.absolutePath)
                     intent.putExtra("file_name", newFile.name)
                     startActivity(intent)
                 } catch (e: Exception) {
-                    Toast.makeText(this, "创建失败: ${"$"}{e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "创建失败: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton("取消", null)
             .show()
     }
 
+    override fun onBackPressed() {
+        if (!navigateUp()) {
+            super.onBackPressed()
+        }
+    }
+
     inner class FileAdapter(private val items: List<File>) :
         RecyclerView.Adapter<FileAdapter.ViewHolder>() {
+
+        companion object {
+            private const val TYPE_PARENT = 0
+            private const val TYPE_DIR = 1
+            private const val TYPE_FILE = 2
+        }
+
+        private val hasParent: Boolean get() = currentPath != projectPath
+        private fun adjustedPosition(pos: Int) = if (hasParent) pos - 1 else pos
+
+        override fun getItemViewType(position: Int): Int {
+            if (hasParent && position == 0) return TYPE_PARENT
+            val file = items[adjustedPosition(position)]
+            return if (file.isDirectory) TYPE_DIR else TYPE_FILE
+        }
+
+        override fun getItemCount() = items.size + (if (hasParent) 1 else 0)
 
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val nameText: TextView = view.findViewById(R.id.file_name)
@@ -278,21 +313,27 @@ class ProjectActivity : AppCompatActivity() {
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val file = items[position]
-            val relPath = file.absolutePath.removePrefix(projectPath).removePrefix("/")
+            if (getItemViewType(position) == TYPE_PARENT) {
+                holder.nameText.text = "\uD83D\uDCC2 .."
+                holder.itemView.setOnClickListener { navigateUp() }
+                return
+            }
+
+            val file = items[adjustedPosition(position)]
+            val relPath = file.absolutePath.removePrefix(currentPath).removePrefix("/")
             val icon = if (file.isDirectory) "\uD83D\uDCC1 " else "\uD83D\uDCC4 "
             holder.nameText.text = icon + relPath
 
             holder.itemView.setOnClickListener {
-                if (file.isDirectory) return@setOnClickListener
-                val intent = Intent(this@ProjectActivity, EditorActivity::class.java)
-                intent.putExtra("file_path", file.absolutePath)
-                intent.putExtra("file_name", file.name)
-                startActivity(intent)
+                if (file.isDirectory) {
+                    navigateTo(file)
+                } else {
+                    val intent = Intent(this@ProjectActivity, EditorActivity::class.java)
+                    intent.putExtra("file_path", file.absolutePath)
+                    intent.putExtra("file_name", file.name)
+                    startActivity(intent)
+                }
             }
         }
-
-        override fun getItemCount() = items.size
     }
 }
-
