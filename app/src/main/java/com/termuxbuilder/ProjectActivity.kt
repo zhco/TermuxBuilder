@@ -12,8 +12,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import android.view.Menu
-import android.view.MenuItem
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -29,12 +27,21 @@ class ProjectActivity : AppCompatActivity() {
         private const val TYPE_PARENT = 0
         private const val TYPE_DIR = 1
         private const val TYPE_FILE = 2
+        private const val TYPE_QUICK = 3
+
+        // 项目首页常用文件（相对路径）
+        private val QUICK_FILES = listOf(
+            "app/build.gradle.kts",
+            "app/src/main/AndroidManifest.xml",
+            "settings.gradle.kts"
+        )
     }
 
     private lateinit var projectPath: String
     private lateinit var projectName: String
     private lateinit var fileList: RecyclerView
     private lateinit var btnBuild: Button
+    private lateinit var btnNewFile: TextView
     private lateinit var pathLabel: TextView
     private var currentPath = ""
     private var files = mutableListOf<File>()
@@ -52,13 +59,16 @@ class ProjectActivity : AppCompatActivity() {
         title = projectName
 
         pathLabel = findViewById(R.id.path_label)
+        btnNewFile = findViewById(R.id.btn_new_file)
         fileList = findViewById(R.id.file_list)
         btnBuild = findViewById(R.id.btn_build)
 
         fileList.layoutManager = LinearLayoutManager(this)
-        loadFiles()
 
+        btnNewFile.setOnClickListener { createNewFile() }
         btnBuild.setOnClickListener { triggerBuild() }
+
+        loadFiles()
     }
 
     override fun onResume() {
@@ -66,22 +76,15 @@ class ProjectActivity : AppCompatActivity() {
         loadFiles()
     }
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menu.add(0, 100, 0, "新建文件").setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
-        return true
-    }
-
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == 100) {
-            createNewFile()
-            return true
-        }
         if (item.itemId == android.R.id.home) {
             onBackPressed()
             return true
         }
         return super.onOptionsItemSelected(item)
     }
+
+    private fun isAtRoot() = currentPath == projectPath
 
     private fun loadFiles() {
         val dir = File(currentPath)
@@ -94,8 +97,11 @@ class ProjectActivity : AppCompatActivity() {
         fileList.adapter = FileAdapter(files)
 
         // Update path label
-        val rel = if (currentPath == projectPath) "/" else currentPath.removePrefix(projectPath)
+        val rel = if (isAtRoot()) "/" else currentPath.removePrefix(projectPath)
         pathLabel.text = rel
+
+        // 首页显示常用文件按钮，子目录隐藏
+        btnNewFile.visibility = if (isAtRoot()) View.VISIBLE else View.GONE
     }
 
     private fun navigateTo(dir: File) {
@@ -104,9 +110,8 @@ class ProjectActivity : AppCompatActivity() {
     }
 
     private fun navigateUp(): Boolean {
-        if (currentPath == projectPath) return false
+        if (isAtRoot()) return false
         currentPath = File(currentPath).parent ?: projectPath
-        // don't go above project root
         if (!currentPath.startsWith(projectPath)) currentPath = projectPath
         loadFiles()
         return true
@@ -168,13 +173,13 @@ class ProjectActivity : AppCompatActivity() {
                     runOnUiThread {
                         btnBuild.isEnabled = true
                         btnBuild.text = "编译"
-                        Toast.makeText(this@ProjectActivity, "无法写入 Download 目录，请检查存储权限", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@ProjectActivity, "无法写入 Download 目录", Toast.LENGTH_LONG).show()
                     }
                     return@Thread
                 }
 
                 val targetDir = "/data/data/com.termux/files/home/projects/${projectName}"
-                val D = "$"
+                val D = "\$"
                 val script = "#!/data/data/com.termux/files/usr/bin/bash\n" +
                     "DIR=\"$targetDir\"\n" +
                     "mkdir -p \"${D}DIR\" && cd \"${D}DIR\" || exit 1\n" +
@@ -188,9 +193,9 @@ class ProjectActivity : AppCompatActivity() {
                     "echo ''\n" +
                     "echo '>>> 编译完成，复制 APK 到 Download...'\n" +
                     "apk=\$(find app/build/outputs/apk -name '*.apk' 2>/dev/null | head -1)\n" +
-                    "if [ -n \"\${D}apk\" ]; then\n" +
-                    "    cp \"\${D}apk\" /sdcard/Download/${projectName}.apk && echo \"APK: /sdcard/Download/${projectName}.apk\"\n" +
-                    "    termux-open \"\${D}apk\" 2>/dev/null\n" +
+                    "if [ -n \"${D}apk\" ]; then\n" +
+                    "    cp \"${D}apk\" /sdcard/Download/${projectName}.apk && echo \"APK: /sdcard/Download/${projectName}.apk\"\n" +
+                    "    termux-open \"${D}apk\" 2>/dev/null\n" +
                     "else\n" +
                     "    echo '未找到 APK'\n" +
                     "fi\n" +
@@ -244,7 +249,7 @@ class ProjectActivity : AppCompatActivity() {
     }
 
     private fun createNewFile() {
-        val rel = if (currentPath == projectPath) "/" else currentPath.removePrefix(projectPath)
+        val rel = if (isAtRoot()) "/" else currentPath.removePrefix(projectPath)
         val input = android.widget.EditText(this)
         input.hint = "输入文件名，如 dialog_activation.xml"
         input.setTextColor(0xFFFFFFFF.toInt())
@@ -259,7 +264,6 @@ class ProjectActivity : AppCompatActivity() {
                     Toast.makeText(this, "文件名不能为空", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
-                // Allow subdirectory in name (e.g. res/layout/foo.xml)
                 val newFile = File(currentPath, name)
                 if (newFile.exists()) {
                     Toast.makeText(this, "文件已存在", Toast.LENGTH_SHORT).show()
@@ -282,6 +286,13 @@ class ProjectActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun openFile(file: File) {
+        val intent = Intent(this@ProjectActivity, EditorActivity::class.java)
+        intent.putExtra("file_path", file.absolutePath)
+        intent.putExtra("file_name", file.name)
+        startActivity(intent)
+    }
+
     override fun onBackPressed() {
         if (!navigateUp()) {
             super.onBackPressed()
@@ -292,15 +303,31 @@ class ProjectActivity : AppCompatActivity() {
         RecyclerView.Adapter<FileAdapter.ViewHolder>() {
 
         private val hasParent: Boolean get() = currentPath != projectPath
-        private fun adjustedPosition(pos: Int) = if (hasParent) pos - 1 else pos
+        private val hasQuick: Boolean get() = currentPath == projectPath
+
+        // 首页: [quick1, quick2, quick3] + files...
+        // 子目录: [..] + files...
+        private fun realItemsBefore(): Int {
+            return if (hasQuick) 0 else 0  // quick items handled separately
+        }
+
+        private fun parentOffset(): Int = if (hasParent) 1 else 0
+        private fun quickCount(): Int = if (hasQuick) QUICK_FILES.size else 0
 
         override fun getItemViewType(position: Int): Int {
             if (hasParent && position == 0) return TYPE_PARENT
-            val file = items[adjustedPosition(position)]
+            if (hasQuick) {
+                val qi = if (hasParent) position - 1 else position
+                if (qi < QUICK_FILES.size) return TYPE_QUICK
+            }
+            val fileIdx = position - parentOffset() - quickCount()
+            val file = items[fileIdx]
             return if (file.isDirectory) TYPE_DIR else TYPE_FILE
         }
 
-        override fun getItemCount() = items.size + (if (hasParent) 1 else 0)
+        override fun getItemCount(): Int {
+            return parentOffset() + quickCount() + items.size
+        }
 
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val nameText: TextView = view.findViewById(R.id.file_name)
@@ -319,7 +346,24 @@ class ProjectActivity : AppCompatActivity() {
                 return
             }
 
-            val file = items[adjustedPosition(position)]
+            if (getItemViewType(position) == TYPE_QUICK) {
+                val qi = if (hasParent) position - 1 else position
+                val quickPath = QUICK_FILES[qi]
+                val file = File(projectPath, quickPath)
+                val exists = file.exists()
+                holder.nameText.text = if (exists) "\u2B50 $quickPath" else "\u274C $quickPath"
+                holder.nameText.setTextColor(if (exists) 0xFFFFD700.toInt() else 0xFF666666.toInt())
+                holder.itemView.setOnClickListener {
+                    if (exists) {
+                        openFile(file)
+                    } else {
+                        Toast.makeText(this@ProjectActivity, "文件不存在: $quickPath", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                return
+            }
+
+            val file = items[position - parentOffset() - quickCount()]
             val relPath = file.absolutePath.removePrefix(currentPath).removePrefix("/")
             val icon = if (file.isDirectory) "\uD83D\uDCC1 " else "\uD83D\uDCC4 "
             holder.nameText.text = icon + relPath
@@ -328,10 +372,7 @@ class ProjectActivity : AppCompatActivity() {
                 if (file.isDirectory) {
                     navigateTo(file)
                 } else {
-                    val intent = Intent(this@ProjectActivity, EditorActivity::class.java)
-                    intent.putExtra("file_path", file.absolutePath)
-                    intent.putExtra("file_name", file.name)
-                    startActivity(intent)
+                    openFile(file)
                 }
             }
         }
