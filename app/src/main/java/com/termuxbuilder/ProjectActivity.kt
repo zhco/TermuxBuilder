@@ -42,19 +42,20 @@ class ProjectActivity : AppCompatActivity() {
             "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml"
         )
 
-        private fun resolveQuickFiles(): List<String> {
-            val result = mutableListOf<String>()
-            // 动态查找 MainActivity.kt
-            val javaDir = File(projectPath, "app/src/main/java")
-            if (javaDir.exists()) {
-                javaDir.walkTopDown().filter { it.isFile && it.name == "MainActivity.kt" }.forEach {
-                    result.add(it.relativeTo(File(projectPath)).path)
-                }
+    }
+
+    private fun resolveQuickFiles(): List<String> {
+        val result = mutableListOf<String>()
+        // 动态查找 MainActivity.kt
+        val javaDir = File(projectPath, "app/src/main/java")
+        if (javaDir.exists()) {
+            javaDir.walkTopDown().filter { it.isFile && it.name == "MainActivity.kt" }.forEach {
+                result.add(it.relativeTo(File(projectPath)).path)
             }
-            // 静态路径
-            result.addAll(QUICK_FILES.filter { File(projectPath, it).exists() })
-            return result
         }
+        // 静态路径
+        result.addAll(QUICK_FILES.filter { File(projectPath, it).exists() })
+        return result
     }
 
     private lateinit var projectPath: String
