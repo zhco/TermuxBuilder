@@ -25,6 +25,12 @@ import java.util.zip.ZipOutputStream
 
 class ProjectActivity : AppCompatActivity() {
 
+    companion object {
+        private const val TYPE_PARENT = 0
+        private const val TYPE_DIR = 1
+        private const val TYPE_FILE = 2
+    }
+
     private lateinit var projectPath: String
     private lateinit var projectName: String
     private lateinit var fileList: RecyclerView
@@ -284,12 +290,6 @@ class ProjectActivity : AppCompatActivity() {
 
     inner class FileAdapter(private val items: List<File>) :
         RecyclerView.Adapter<FileAdapter.ViewHolder>() {
-
-        companion object {
-            private const val TYPE_PARENT = 0
-            private const val TYPE_DIR = 1
-            private const val TYPE_FILE = 2
-        }
 
         private val hasParent: Boolean get() = currentPath != projectPath
         private fun adjustedPosition(pos: Int) = if (hasParent) pos - 1 else pos
