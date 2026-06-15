@@ -35,6 +35,7 @@ class EditorActivity : AppCompatActivity() {
 
         try {
             editor.setText(File(filePath).readText())
+            editor.selectAll()
             val bgColor = ContextCompat.getColor(this, R.color.editor_bg)
             editor.setBackgroundColor(bgColor)
             val textColor = ContextCompat.getColor(this, R.color.editor_text)
