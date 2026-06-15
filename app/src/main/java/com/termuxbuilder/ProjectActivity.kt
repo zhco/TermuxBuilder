@@ -32,9 +32,14 @@ class ProjectActivity : AppCompatActivity() {
 
         // 项目首页常用文件（相对路径）
         private val QUICK_FILES = listOf(
-            "app/build.gradle.kts",
             "app/src/main/AndroidManifest.xml",
-            "settings.gradle.kts"
+            "app/build.gradle.kts",
+            "app/src/main/java/com/termuxbuilder/MainActivity.kt",
+            "app/src/main/res/layout/activity_main.xml",
+            "app/src/main/res/values/strings.xml",
+            "app/src/main/res/values/colors.xml",
+            "app/src/main/res/values/styles.xml",
+            "app/src/main/res/mipmap-hdpi/ic_launcher.png"
         )
     }
 
