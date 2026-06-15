@@ -182,10 +182,13 @@ include(":app")
 cd "${D}(dirname "${D}0")" || exit 1
 CLASSPATH=${D}(pwd)/gradle/wrapper/gradle-wrapper.jar
 if [ ! -f "${D}CLASSPATH" ]; then
+    if command -v gradle > /dev/null 2>&1; then
+        exec gradle "${D}@"
+    fi
     echo ">>> download gradle-wrapper.jar..."
     mkdir -p gradle/wrapper
     curl -fsSL -o "${D}CLASSPATH" "https://raw.githubusercontent.com/zhco/TermuxBuilder/main/app/src/main/res/raw/gradle_wrapper.jar" || {
-        echo "ERROR: cannot download gradle-wrapper.jar"; exit 1
+        echo "ERROR: no gradle or gradle-wrapper.jar available"; exit 1
     }
 fi
 exec java -classpath "${D}CLASSPATH" org.gradle.wrapper.GradleWrapperMain "${D}@"
