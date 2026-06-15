@@ -115,7 +115,7 @@ class ProjectActivity : AppCompatActivity() {
                 }
 
                 val targetDir = "/data/data/com.termux/files/home/projects/${projectName}"
-                val D = "${"$"}${"$"}"
+                val D = "${'$'}"
                 val script = "#!/data/data/com.termux/files/usr/bin/bash\n" +
                     "DIR=\"$targetDir\"\n" +
                     "mkdir -p \"${D}DIR\" && cd \"${D}DIR\" || exit 1\n" +
