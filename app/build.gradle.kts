@@ -11,8 +11,8 @@ android {
         applicationId = "com.termuxbuilder"
         minSdk = 26
         targetSdk = 34
-        versionCode = 28
-        versionName = "2.0.0.28"
+        versionCode = 36
+        versionName = "2.0.0.36"
     }
 
     buildTypes {
