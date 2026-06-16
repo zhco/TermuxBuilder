@@ -209,83 +209,83 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
         }
-        // app/build.gradle.kts
+        // app/build.gradle.kts — 扫描源码生成精确依赖
         val appGradle = File(root, "app/build.gradle.kts")
         if (!appGradle.exists()) {
-            // Check if the project uses Jetpack Compose
-            val hasCompose = kotlin.runCatching {
-                val srcDir = File(root, "app/src/main/java")
-                srcDir.walkTopDown().filter { it.extension == "kt" }.any { file ->
-                    file.readText().contains("import androidx.compose")
+            val deps = mutableSetOf<String>()
+            val srcDir = File(root, "app/src/main/java")
+            kotlin.runCatching {
+                srcDir.walkTopDown().filter { it.extension == "kt" }.forEach { file ->
+                    file.readText().lines().filter { it.startsWith("import ") }.forEach { imp ->
+                        when {
+                            // Compose
+                            imp.contains("androidx.compose.ui") -> deps.add("""    implementation("androidx.compose.ui:ui")""")
+                            imp.contains("androidx.compose.material3") -> deps.add("""    implementation("androidx.compose.material3:material3")""")
+                            imp.contains("androidx.compose.material.icons") -> deps.add("""    implementation("androidx.compose.material:material-icons-extended")""")
+                            imp.contains("androidx.compose.runtime") -> deps.add("""    implementation("androidx.compose.runtime:runtime")""")
+                            imp.contains("androidx.compose.foundation") -> deps.add("""    implementation("androidx.compose.foundation:foundation")""")
+                            imp.contains("androidx.compose") -> deps.add("""    implementation("androidx.compose.ui:ui")""") // catch-all compose
+                            // Activity
+                            imp.contains("androidx.activity.compose") -> deps.add("""    implementation("androidx.activity:activity-compose:1.8.2")""")
+                            imp.contains("androidx.activity") -> deps.add("""    implementation("androidx.activity:activity-ktx:1.8.2")""")
+                            // Lifecycle
+                            imp.contains("androidx.lifecycle.viewmodel.compose") -> deps.add("""    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")""")
+                            imp.contains("androidx.lifecycle.viewModelScope") -> deps.add("""    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")""")
+                            imp.contains("androidx.lifecycle.compose") -> deps.add("""    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")""")
+                            imp.contains("androidx.lifecycle") -> deps.add("""    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")""")
+                            // Navigation
+                            imp.contains("androidx.navigation.compose") -> deps.add("""    implementation("androidx.navigation:navigation-compose:2.7.7")""")
+                            imp.contains("androidx.navigation") -> deps.add("""    implementation("androidx.navigation:navigation-compose:2.7.7")""")
+                            // Core
+                            imp.contains("androidx.core") -> deps.add("""    implementation("androidx.core:core-ktx:1.12.0")""")
+                            // AppCompat
+                            imp.contains("androidx.appcompat") -> deps.add("""    implementation("androidx.appcompat:appcompat:1.6.1")""")
+                            // ConstraintLayout
+                            imp.contains("androidx.constraintlayout") -> deps.add("""    implementation("androidx.constraintlayout:constraintlayout:2.1.4")""")
+                            // Coroutines
+                            imp.contains("kotlinx.coroutines") -> deps.add("""    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")""")
+                        }
+                    }
                 }
-            }.getOrDefault(false)
-
-            if (hasCompose) {
-                appGradle.writeText("""plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-}
-android {
-    namespace = "com.codeeditor.app"
-    compileSdk = 34
-    defaultConfig {
-        applicationId = "com.codeeditor.app"
-        minSdk = 26
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
-    }
-    buildTypes { release { isMinifyEnabled = false } }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
-    composeOptions { kotlinCompilerExtensionVersion = "1.5.8" }
-}
-dependencies {
-    implementation(platform("androidx.compose:compose-bom:2024.01.00"))
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.runtime:runtime")
-    implementation("androidx.activity:activity-compose:1.8.2")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
-    implementation("androidx.core:core-ktx:1.12.0")
-}
-""")
-            } else {
-                appGradle.writeText("""plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-}
-android {
-    namespace = "com.codeeditor.app"
-    compileSdk = 34
-    defaultConfig {
-        applicationId = "com.codeeditor.app"
-        minSdk = 26
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
-    }
-    buildTypes { release { isMinifyEnabled = false } }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions { jvmTarget = "17" }
-}
-dependencies {
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.google.android.material:material:1.11.0")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-}
-""")
             }
+
+            val hasCompose = deps.any { it.contains("compose") }
+            val composeBlock = if (hasCompose) """
+    buildFeatures { compose = true }
+    composeOptions { kotlinCompilerExtensionVersion = "1.5.8" }""" else ""
+
+            val hasBom = deps.any { it.contains("compose") }
+            val bomLine = if (hasBom) """    implementation(platform("androidx.compose:compose-bom:2024.01.00"))
+""" else ""
+
+            val sortedDeps = (listOf(bomLine).filter { it.isNotBlank() } + deps.sorted()).joinToString("
+")
+
+            appGradle.writeText("""plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+android {
+    namespace = "com.codeeditor.app"
+    compileSdk = 34
+    defaultConfig {
+        applicationId = "com.codeeditor.app"
+        minSdk = 26
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
+    }
+    buildTypes { release { isMinifyEnabled = false } }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = "17" }${composeBlock}
+}
+dependencies {
+${sortedDeps}
+}
+""")
         }
     }
 
