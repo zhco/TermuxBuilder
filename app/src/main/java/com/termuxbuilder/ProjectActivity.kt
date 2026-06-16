@@ -280,7 +280,7 @@ android {
     kotlinOptions { jvmTarget = "17" }${composeBlock}
 }
 dependencies {
-${sortedDeps}
+${sortedDeps.joinToString("\n")}
 }
 """)
         }
