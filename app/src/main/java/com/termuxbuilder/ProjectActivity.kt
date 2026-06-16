@@ -255,11 +255,8 @@ zipStorePath=wrapper/dists
     composeOptions { kotlinCompilerExtensionVersion = "1.5.8" }""" else ""
 
             val hasBom = deps.any { it.contains("compose") }
-            val bomLine = if (hasBom) """    implementation(platform("androidx.compose:compose-bom:2024.01.00"))
-""" else ""
-
-            val sortedDeps = (listOf(bomLine).filter { it.isNotBlank() } + deps.sorted()).joinToString("
-")
+            val bomLine = if (hasBom) "    implementation(platform(\"androidx.compose:compose-bom:2024.01.00\"))" else ""
+            val sortedDeps = listOfNotNull(bomLine.ifBlank { null }) + deps.sorted()
 
             appGradle.writeText("""plugins {
     id("com.android.application")
